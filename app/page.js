@@ -74,6 +74,21 @@ export default function Home() {
               {loading ? '分析中...' : '立即分析'}
             </button>
           </form>
+
+          {/* 新增的推廣按鈕：手機版跟搜尋框一樣大，顏色明顯 */}
+          {!report && !loading && (
+            <div className="mt-6 flex justify-center">
+              <a 
+                href="https://ai-zeta-dusky-55.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full md:w-auto inline-flex items-center justify-center px-10 py-3 bg-orange-500 text-white font-black rounded-2xl hover:bg-orange-600 shadow-lg shadow-orange-200 active:scale-95 transition-all text-lg"
+              >
+                💡 智網 網頁製作與SEO
+              </a>
+            </div>
+          )}
+
           {error && <p className="text-red-500 mt-4 font-bold">⚠️ {error}</p>}
         </div>
 
@@ -86,12 +101,12 @@ export default function Home() {
                 <h2 className="text-2xl font-black text-slate-800">我的網頁評估分數</h2>
                 <p className="text-slate-400 text-sm font-mono">{report.url}</p>
               </div>
-<button 
-  onClick={exportPDF}
-  className="bg-red-600 text-white px-5 py-2 md:px-8 md:py-3 rounded-xl font-bold text-sm md:text-base hover:bg-red-700 shadow-lg shadow-red-200 transition-all print:hidden"
->
-  匯出報告
-</button>
+              <button 
+                onClick={exportPDF}
+                className="bg-red-600 text-white px-5 py-2 md:px-8 md:py-3 rounded-xl font-bold text-sm md:text-base hover:bg-red-700 shadow-lg shadow-red-200 transition-all print:hidden"
+              >
+                匯出報告
+              </button>
             </div>
 
             {/* 總分卡片 */}
