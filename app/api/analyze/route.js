@@ -3,11 +3,20 @@ import * as cheerio from 'cheerio';
 export async function POST(request) {
   try {
     const { url } = await request.json();
+    
+    // 增加更完整的 Headers 模擬真實瀏覽器，避免被 Vercel IP 阻擋
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      },
+      redirect: 'follow'
     });
     
-    if (!response.ok) return Response.json({ error: '無法存取該網址' }, { status: 400 });
+    if (!response.ok) return Response.json({ error: `無法存取該網址 (Status: ${response.status})` }, { status: 400 });
 
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -55,7 +64,10 @@ export async function POST(request) {
     const internal = $('a[href^="/"], a[href^="' + url + '"]').length;
     addScore('Content', 'Internal Links', internal > 0 ? 5 : 2.5, 'pass', `數量: ${internal}`);
     
-    const external = $('a[href^="http"]').filter((i, el) => !$(el).attr('href').includes(url)).length;
+    const external = $('a[href^="http"]').filter((i, el) => {
+      const href = $(el).attr('href');
+      return href && !href.includes(new URL(url).hostname);
+    }).length;
     addScore('Content', 'External Links', external > 0 ? 5 : 2.5, 'pass', `數量: ${external}`);
     
     const lang = $('html').attr('lang');
