@@ -15,9 +15,7 @@ export const metadata = {
   title: "智網網站 SEO 評估",
   description: "一鍵分析網頁 SEO 分數，找出網站潛在問題，提供專業優化建議，提升搜尋引擎排名。",
   // 圖示設定
-  icons: {
-    icon: "/favicon.ico",
-  },
+   icons: { icon: '/favicon.svg' },
   // 臉書、LINE 分享預覽設定
   openGraph: {
     title: "智網網站 SEO 評估 - 找出您網站的搜尋排名關鍵",

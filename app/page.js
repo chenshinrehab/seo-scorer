@@ -1,5 +1,8 @@
 'use client';
 import { useState } from 'react';
+// 注意：請確保在專案中執行 npm install jspdf html2canvas
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export default function Home() {
   const [url, setUrl] = useState('');
@@ -28,27 +31,56 @@ export default function Home() {
     }
   };
 
-  // 1. 改善建議統整邏輯
   const criticalFixes = report?.results.filter(item => item.status === 'fail') || [];
   const warnings = report?.results.filter(item => item.status === 'warning') || [];
 
-  // 2. 分組邏輯
   const groupedResults = report?.results.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {});
 
-  // 3. PDF 匯出功能
-  const exportPDF = () => {
-    window.print();
+  // --- 核心修改：PDF 匯出邏輯 ---
+  const exportPDF = async () => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (!isMobile) {
+      // 電腦端：直接呼叫列印
+      window.print();
+    } else {
+      // 手機端：生成實體 PDF 下載
+      const element = document.getElementById('report-content');
+      if (!element) return;
+
+      setLoading(true); // 借用 loading 狀態顯示處理中
+      try {
+        const canvas = await html2canvas(element, {
+          scale: 2, // 提高解析度
+          useCORS: true,
+          logging: false,
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`SEO-Report-${new Date().getTime()}.pdf`);
+      } catch (err) {
+        console.error('PDF generation failed', err);
+        alert('手機生成 PDF 失敗，請重試或使用電腦瀏覽器。');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 print:bg-white print:p-0">
       <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* 搜尋區塊 - 列印時隱藏 */}
+        {/* 搜尋區塊 */}
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 text-center print:hidden">
           <h1 className="text-3xl font-black mb-6 tracking-tight text-blue-600">智網 網站 SEO 評估</h1>
           <form onSubmit={handleAnalyze} className="flex flex-col md:flex-row gap-3 justify-center">
@@ -64,14 +96,14 @@ export default function Home() {
               disabled={loading}
               className="px-8 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-200 active:scale-95 disabled:opacity-50 transition-all"
             >
-              {loading ? '分析中...' : '立即分析'}
+              {loading ? '處理中...' : '立即分析'}
             </button>
           </form>
           {error && <p className="text-red-500 mt-4 font-bold">⚠️ {error}</p>}
         </div>
 
         {report && (
-          <div className="space-y-8 pb-20">
+          <div id="report-content" className="space-y-8 pb-20">
             
             {/* 報告標題與操作按鈕 */}
             <div className="flex justify-between items-center px-2">
@@ -81,9 +113,10 @@ export default function Home() {
               </div>
               <button 
                 onClick={exportPDF}
-                className="bg-slate-800 text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-slate-900 transition-all print:hidden"
+                disabled={loading}
+                className="bg-slate-800 text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-slate-900 transition-all print:hidden active:scale-95 disabled:opacity-50"
               >
-                匯出 PDF 報告
+                {loading ? '生成中...' : '匯出 PDF 報告'}
               </button>
             </div>
 
@@ -95,81 +128,48 @@ export default function Home() {
               </div>
             </div>
 
-            {/* --- 改善建議與進階連結 --- */}
+            {/* 改善建議統整 */}
             <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 print:shadow-none">
               <h2 className="text-xl font-black mb-6 flex items-center gap-2">
                 <span className="bg-blue-600 text-white p-1 rounded">📋</span> 改善建議統整
               </h2>
               
-              {/* 顯示錯誤與警告 (如果有) */}
               {(criticalFixes.length > 0 || warnings.length > 0) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                   <div className="space-y-3">
                     <h3 className="text-red-600 font-black text-sm uppercase tracking-wider">🚨 優先修正 ({criticalFixes.length})</h3>
-                    {criticalFixes.length > 0 ? (
-                      criticalFixes.map((item, i) => (
-                        <div key={i} className="p-3 bg-red-50 rounded-xl text-xs font-bold text-red-700 border border-red-100">
-                          {item.category}: {item.name} 缺失或錯誤
-                        </div>
-                      ))
-                    ) : <p className="text-xs text-slate-400">目前無嚴重錯誤</p>}
+                    {criticalFixes.map((item, i) => (
+                      <div key={i} className="p-3 bg-red-50 rounded-xl text-xs font-bold text-red-700 border border-red-100">
+                        {item.category}: {item.name} 缺失
+                      </div>
+                    ))}
                   </div>
 
                   <div className="space-y-3">
                     <h3 className="text-orange-600 font-black text-sm uppercase tracking-wider">⚠️ 優化建議 ({warnings.length})</h3>
-                    {warnings.length > 0 ? (
-                      warnings.map((item, i) => (
-                        <div key={i} className="p-3 bg-orange-50 rounded-xl text-xs font-bold text-orange-700 border border-orange-100">
-                          {item.name}: {item.message}
-                        </div>
-                      ))
-                    ) : <p className="text-xs text-slate-400">目前無優化建議</p>}
+                    {warnings.map((item, i) => (
+                      <div key={i} className="p-3 bg-orange-50 rounded-xl text-xs font-bold text-orange-700 border border-orange-100">
+                        {item.name}: {item.message}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
                 <div className="mb-8 p-4 bg-green-50 border border-green-100 rounded-2xl text-center">
-                  <p className="text-green-700 font-bold text-sm">✨ 太棒了！您的網站基礎 SEO 表現非常出色。</p>
+                  <p className="text-green-700 font-bold text-sm">✨ 您的網站表現非常出色。</p>
                 </div>
               )}
 
-              {/* --- 外部進階檢測與學習連結 (一律顯示) --- */}
+              {/* 進階連結 - 手機導出的 PDF 會變成靜態圖，但連結通常在手機 PDF 閱讀器可點擊 */}
               <div className="bg-slate-50 p-6 rounded-2xl print:hidden border border-slate-100">
-                <h3 className="text-sm font-black text-slate-500 mb-4 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  進階優化與學習資源
-                </h3>
-                <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                  除了基礎 SEO 指標，<b>網路載入速度</b>、<b>Schema 結構完整性</b>以及<b>專業的網頁製作技術</b>也是成功的關鍵。請參考以下資源：
-                </p>
-            <div className="flex flex-wrap gap-4">
-                  <a 
-                    href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-blue-100 hover:scale-[1.02] active:scale-95"
-                  >
-                    🚀 PageSpeed 速度檢測
-                  </a>
-                  <a 
-                    href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-emerald-100 hover:scale-[1.02] active:scale-95"
-                  >
-                    🛠️ Schema 結構化驗證
-                  </a>
-                  <a 
-                    href="https://ai-zeta-dusky-55.vercel.app/"
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-orange-100 hover:scale-[1.02] active:scale-95"
-                  >
-                    💡 學習加強與製作網頁
-                  </a>
-                </div>              </div>
+                <div className="flex flex-wrap gap-4">
+                  <a href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`} target="_blank" className="flex-1 min-w-[200px] text-center px-6 py-4 bg-blue-600 text-white rounded-2xl text-sm font-black">🚀 PageSpeed 檢測</a>
+                  <a href="https://ai-zeta-dusky-55.vercel.app/" target="_blank" className="flex-1 min-w-[200px] text-center px-6 py-4 bg-orange-500 text-white rounded-2xl text-sm font-black">💡 學習網頁製作</a>
+                </div>
+              </div>
             </div>
 
-            {/* --- 詳細分組項目 --- */}
+            {/* 詳細分組項目 */}
             {Object.keys(groupedResults).map((category) => (
               <div key={category} className="space-y-4 break-inside-avoid">
                 <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest ml-2 flex items-center">
@@ -178,16 +178,13 @@ export default function Home() {
                 </h2>
                 <div className="bg-white rounded-3xl shadow-lg border border-slate-100 overflow-hidden print:shadow-none print:border-slate-200">
                   {groupedResults[category].map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-5 border-b last:border-0 border-slate-50 hover:bg-slate-50 transition-colors">
+                    <div key={idx} className="flex items-center justify-between p-5 border-b last:border-0 border-slate-50">
                       <div className="flex-1">
                         <h3 className="font-bold text-slate-800">{item.name}</h3>
                         <p className="text-xs text-slate-400 font-medium">{item.message}</p>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
-                          item.status === 'pass' ? 'bg-green-100 text-green-600' : 
-                          item.status === 'warning' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'
-                        }`}>
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${item.status === 'pass' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                           {item.status}
                         </span>
                         <div className="text-right min-w-[50px]">
@@ -204,13 +201,11 @@ export default function Home() {
         )}
       </div>
 
-      {/* CSS 針對列印優化 */}
       <style jsx global>{`
         @media print {
           body { background: white !important; }
           .print\\:hidden { display: none !important; }
           .shadow-xl, .shadow-lg { box-shadow: none !important; }
-          .rounded-3xl { border-radius: 12px !important; }
           .break-inside-avoid { break-inside: avoid; }
         }
       `}</style>
