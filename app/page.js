@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
   const [url, setUrl] = useState('');
@@ -7,8 +7,22 @@ export default function Home() {
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
 
+  // 新增：初始化時從 sessionStorage 讀取快取資料
+  useEffect(() => {
+    const savedReport = sessionStorage.getItem('last_seo_report');
+    const savedUrl = sessionStorage.getItem('last_seo_url');
+    if (savedReport) {
+      try {
+        setReport(JSON.parse(savedReport));
+        if (savedUrl) setUrl(savedUrl);
+      } catch (e) {
+        console.error("解析快取資料失敗", e);
+      }
+    }
+  }, []);
+
   const handleAnalyze = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoading(true);
     setError('');
     setReport(null);
@@ -20,7 +34,12 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      
+      // 儲存到 State 與 sessionStorage
       setReport(data);
+      sessionStorage.setItem('last_seo_report', JSON.stringify(data));
+      sessionStorage.setItem('last_seo_url', url);
+      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -41,9 +60,7 @@ export default function Home() {
 
   // 3. PDF 匯出功能 - 加入手機版判斷
   const exportPDF = () => {
-    // 偵測是否為行動裝置
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
     if (isMobile) {
       alert('請使用電腦版本下載 PDF 報告');
     } else {
@@ -101,12 +118,23 @@ export default function Home() {
                 <h2 className="text-2xl font-black text-slate-800">我的網頁評估分數</h2>
                 <p className="text-slate-400 text-sm font-mono">{report.url}</p>
               </div>
-              <button 
-                onClick={exportPDF}
-                className="bg-red-600 text-white px-5 py-2 md:px-8 md:py-3 rounded-xl font-bold text-sm md:text-base hover:bg-red-700 shadow-lg shadow-red-200 transition-all print:hidden"
-              >
-                匯出報告
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    sessionStorage.removeItem('last_seo_report');
+                    setReport(null);
+                  }}
+                  className="bg-slate-200 text-slate-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-slate-300 transition-all print:hidden"
+                >
+                  清除
+                </button>
+                <button 
+                  onClick={exportPDF}
+                  className="bg-red-600 text-white px-5 py-2 md:px-8 md:py-3 rounded-xl font-bold text-sm md:text-base hover:bg-red-700 shadow-lg shadow-red-200 transition-all print:hidden"
+                >
+                  匯出報告
+                </button>
+              </div>
             </div>
 
             {/* 總分卡片 */}
