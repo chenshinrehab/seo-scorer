@@ -3,22 +3,20 @@ import * as cheerio from 'cheerio';
 export async function POST(request) {
   try {
     const { url } = await request.json();
-    
-    // 增加更完整的 Headers 模擬真實瀏覽器，避免被 Vercel IP 阻擋
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      },
-      redirect: 'follow'
-    });
-    
-    if (!response.ok) return Response.json({ error: `無法存取該網址 (Status: ${response.status})` }, { status: 400 });
 
-    const html = await response.text();
+    // 使用 allorigins 免費代理服務繞過 Vercel IP 的 403 封鎖
+    // 它會幫我們去抓取目標網頁內容並回傳
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    
+    if (!response.ok) return Response.json({ error: '代理服務無法存取該網址' }, { status: 400 });
+
+    const data = await response.json();
+    // allorigins 會將 HTML 內容放在 contents 屬性中
+    const html = data.contents;
+    
+    if (!html) return Response.json({ error: '無法解析網頁內容' }, { status: 400 });
+
     const $ = cheerio.load(html);
     const results = [];
     let totalScore = 0;
@@ -66,7 +64,11 @@ export async function POST(request) {
     
     const external = $('a[href^="http"]').filter((i, el) => {
       const href = $(el).attr('href');
-      return href && !href.includes(new URL(url).hostname);
+      try {
+        return href && !href.includes(new URL(url).hostname);
+      } catch (e) {
+        return false;
+      }
     }).length;
     addScore('Content', 'External Links', external > 0 ? 5 : 2.5, 'pass', `數量: ${external}`);
     
