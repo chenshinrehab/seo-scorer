@@ -50,7 +50,7 @@ export default function Home() {
         
         {/* 搜尋區塊 - 列印時隱藏 */}
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 text-center print:hidden">
-          <h1 className="text-3xl font-black mb-6 tracking-tight text-blue-600">網站 SEO 評估</h1>
+          <h1 className="text-3xl font-black mb-6 tracking-tight text-blue-600">智網 網站 SEO 評估</h1>
           <form onSubmit={handleAnalyze} className="flex flex-col md:flex-row gap-3 justify-center">
             <input
               type="url"
