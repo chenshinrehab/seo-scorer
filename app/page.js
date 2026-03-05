@@ -29,8 +29,8 @@ export default function Home() {
   };
 
   // 1. 改善建議統整邏輯
-  const criticalFixes = report?.results.filter(item => item.status === 'fail');
-  const warnings = report?.results.filter(item => item.status === 'warning');
+  const criticalFixes = report?.results.filter(item => item.status === 'fail') || [];
+  const warnings = report?.results.filter(item => item.status === 'warning') || [];
 
   // 2. 分組邏輯
   const groupedResults = report?.results.reduce((acc, item) => {
@@ -39,7 +39,7 @@ export default function Home() {
     return acc;
   }, {});
 
-  // 3. PDF 匯出功能 (利用 Print API)
+  // 3. PDF 匯出功能
   const exportPDF = () => {
     window.print();
   };
@@ -50,7 +50,7 @@ export default function Home() {
         
         {/* 搜尋區塊 - 列印時隱藏 */}
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 text-center print:hidden">
-          <h1 className="text-3xl font-black mb-6 tracking-tight text-blue-600">Detailed SEO Scorer</h1>
+          <h1 className="text-3xl font-black mb-6 tracking-tight text-blue-600">網站 SEO 評估</h1>
           <form onSubmit={handleAnalyze} className="flex flex-col md:flex-row gap-3 justify-center">
             <input
               type="url"
@@ -76,7 +76,7 @@ export default function Home() {
             {/* 報告標題與操作按鈕 */}
             <div className="flex justify-between items-center px-2">
               <div>
-                <h2 className="text-2xl font-black text-slate-800">網頁SEO評估報告</h2>
+                <h2 className="text-2xl font-black text-slate-800">我的網頁評估分數</h2>
                 <p className="text-slate-400 text-sm font-mono">{report.url}</p>
               </div>
               <button 
@@ -95,15 +95,15 @@ export default function Home() {
               </div>
             </div>
 
-            {/* --- 改善建議統整 --- */}
-            {(criticalFixes.length > 0 || warnings.length > 0) && (
-              <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 print:shadow-none">
-                <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-                  <span className="bg-blue-600 text-white p-1 rounded">📋</span> 改善建議統整
-                </h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* 嚴重錯誤 */}
+            {/* --- 改善建議與進階連結 --- */}
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 print:shadow-none">
+              <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+                <span className="bg-blue-600 text-white p-1 rounded">📋</span> 改善建議統整
+              </h2>
+              
+              {/* 顯示錯誤與警告 (如果有) */}
+              {(criticalFixes.length > 0 || warnings.length > 0) ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                   <div className="space-y-3">
                     <h3 className="text-red-600 font-black text-sm uppercase tracking-wider">🚨 優先修正 ({criticalFixes.length})</h3>
                     {criticalFixes.length > 0 ? (
@@ -115,7 +115,6 @@ export default function Home() {
                     ) : <p className="text-xs text-slate-400">目前無嚴重錯誤</p>}
                   </div>
 
-                  {/* 警告建議 */}
                   <div className="space-y-3">
                     <h3 className="text-orange-600 font-black text-sm uppercase tracking-wider">⚠️ 優化建議 ({warnings.length})</h3>
                     {warnings.length > 0 ? (
@@ -127,8 +126,48 @@ export default function Home() {
                     ) : <p className="text-xs text-slate-400">目前無優化建議</p>}
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="mb-8 p-4 bg-green-50 border border-green-100 rounded-2xl text-center">
+                  <p className="text-green-700 font-bold text-sm">✨ 太棒了！您的網站基礎 SEO 表現非常出色。</p>
+                </div>
+              )}
+
+              {/* --- 外部進階檢測與學習連結 (一律顯示) --- */}
+              <div className="bg-slate-50 p-6 rounded-2xl print:hidden border border-slate-100">
+                <h3 className="text-sm font-black text-slate-500 mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                  進階優化與學習資源
+                </h3>
+                <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                  除了基礎 SEO 指標，<b>網路載入速度</b>、<b>Schema 結構完整性</b>以及<b>專業的網頁製作技術</b>也是成功的關鍵。請參考以下資源：
+                </p>
+            <div className="flex flex-wrap gap-4">
+                  <a 
+                    href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-blue-100 hover:scale-[1.02] active:scale-95"
+                  >
+                    🚀 PageSpeed 速度檢測
+                  </a>
+                  <a 
+                    href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-emerald-100 hover:scale-[1.02] active:scale-95"
+                  >
+                    🛠️ Schema 結構化驗證
+                  </a>
+                  <a 
+                    href="https://ai-zeta-dusky-55.vercel.app/"
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-orange-100 hover:scale-[1.02] active:scale-95"
+                  >
+                    💡 學習加強與製作網頁
+                  </a>
+                </div>              </div>
+            </div>
 
             {/* --- 詳細分組項目 --- */}
             {Object.keys(groupedResults).map((category) => (
