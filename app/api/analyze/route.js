@@ -3,19 +3,44 @@ import * as cheerio from 'cheerio';
 export async function POST(request) {
   try {
     const { url } = await request.json();
+    let html = '';
+    let usedProxy = false;
 
-    // 使用 allorigins 免費代理服務繞過 Vercel IP 的 403 封鎖
-    // 它會幫我們去抓取目標網頁內容並回傳
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl);
-    
-    if (!response.ok) return Response.json({ error: '代理服務無法存取該網址' }, { status: 400 });
+    // 策略 1：嘗試直接存取 (速度最快)
+    try {
+      const directResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+        },
+        // 設定較短的 timeout 防止卡住
+        signal: AbortSignal.timeout(5000) 
+      });
 
-    const data = await response.json();
-    // allorigins 會將 HTML 內容放在 contents 屬性中
-    const html = data.contents;
-    
-    if (!html) return Response.json({ error: '無法解析網頁內容' }, { status: 400 });
+      if (directResponse.ok) {
+        html = await directResponse.text();
+      } else if (directResponse.status === 403 || directResponse.status === 401) {
+        // 如果被封鎖，觸發 Error 進入 catch 區塊嘗試 Proxy
+        throw new Error('BLOCKED_BY_WAF');
+      } else {
+        return Response.json({ error: `無法存取網址 (Status: ${directResponse.status})` }, { status: 400 });
+      }
+    } catch (err) {
+      // 策略 2：如果直接存取失敗 (403 或 Timeout)，改用 Proxy 繞過
+      usedProxy = true;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      const proxyResponse = await fetch(proxyUrl);
+      
+      if (!proxyResponse.ok) {
+        return Response.json({ error: '直接存取被阻擋，且代理服務亦無法解析' }, { status: 400 });
+      }
+      
+      const proxyData = await proxyResponse.json();
+      html = proxyData.contents;
+    }
+
+    if (!html) return Response.json({ error: '未能獲取網頁內容' }, { status: 400 });
 
     const $ = cheerio.load(html);
     const results = [];
@@ -26,7 +51,7 @@ export async function POST(request) {
       results.push({ category, name, score, status, message });
     };
 
-    // --- 按照 Detailed SEO 分組 (20項，每項5分) ---
+    // --- SEO 分析邏輯 (保持不變) ---
 
     // [GROUP: General]
     const title = $('title').text();
@@ -64,11 +89,7 @@ export async function POST(request) {
     
     const external = $('a[href^="http"]').filter((i, el) => {
       const href = $(el).attr('href');
-      try {
-        return href && !href.includes(new URL(url).hostname);
-      } catch (e) {
-        return false;
-      }
+      try { return href && !href.includes(new URL(url).hostname); } catch { return false; }
     }).length;
     addScore('Content', 'External Links', external > 0 ? 5 : 2.5, 'pass', `數量: ${external}`);
     
@@ -87,7 +108,7 @@ export async function POST(request) {
     addScore('Technical', 'Charset', ($('meta[charset]').length > 0 || $('meta[http-equiv="Content-Type"]').length > 0) ? 5 : 0, 'pass', '編碼設定');
     addScore('Technical', 'Viewport', $('meta[name="viewport"]').length > 0 ? 5 : 0, 'pass', '行動裝置優化');
 
-    return Response.json({ url, totalScore, results });
+    return Response.json({ url, totalScore, results, usedProxy });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
