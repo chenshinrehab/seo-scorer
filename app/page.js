@@ -30,6 +30,10 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error);
       setReport(data);
       sessionStorage.setItem('last_seo_report', JSON.stringify(data));
+      
+      // 如果需要在前端 Console 看到是否使用了 Proxy 可以打開這行
+      // console.log("是否啟用 Proxy:", data.usedProxy);
+      
     } catch (err) {
       setError(err.message || '連線發生錯誤，請稍後再試');
     } finally {
@@ -159,7 +163,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 扁平化同一行按鈕 (手機版與電腦版通用) */}
+              {/* 扁平化同一行按鈕 */}
               <div className="flex flex-row gap-2 w-full md:w-auto print:hidden shrink-0">
                 <button 
                   onClick={() => {sessionStorage.removeItem('last_seo_report'); setReport(null);}} 
@@ -306,7 +310,7 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
-        /* 動畫與列印樣式 */
+        /* 完整的 CSS 動畫與列印樣式 */
         @keyframes bounceIn {
           0% { opacity: 0; transform: translateY(-50px) scale(0.9); }
           70% { opacity: 1; transform: translateY(10px) scale(1.02); }

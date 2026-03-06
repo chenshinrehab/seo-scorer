@@ -1,42 +1,49 @@
 import * as cheerio from 'cheerio';
 
-export const maxDuration = 60; // 允許 Vercel 執行長達 60 秒
+export const maxDuration = 60;
 
 export async function POST(request) {
   try {
     const { url } = await request.json();
     let html = '';
+    let usedProxy = false;
     
-    // --- 策略 1：優先嘗試直接連線 (限時 5 秒，避免卡死) ---
+    // --- 策略 1：正常存取 (限時 5 秒) ---
     try {
       const directResponse = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
+          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
         },
         signal: AbortSignal.timeout(5000) 
       });
 
       if (directResponse.ok) {
         html = await directResponse.text();
+      } else if (directResponse.status === 403 || directResponse.status === 401) {
+        // 主動識別阻擋，立刻觸發 Error 進入 Catch 切換 Proxy
+        throw new Error('BLOCKED_BY_WAF');
       } else {
-        throw new Error('DIRECT_FAILED');
+        // 其他真實的伺服器錯誤則直接回報
+        return Response.json({ error: `無法存取網址 (Status: ${directResponse.status})` }, { status: 400 });
       }
     } catch (err) {
-      // --- 策略 2：直接連線失敗或超時，啟用終極代理 (allorigins) ---
-      // 加上 time 參數避免抓到舊的報錯快取
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&disableCache=true&time=${Date.now()}`;
+      // --- 策略 2：直接存取失敗 (Timeout 或 403)，立刻轉向 Proxy ---
+      usedProxy = true;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&disableCache=true`;
+      
       try {
-        // 【關鍵修復】：給予代理高達 40 秒的寬裕時間，確保它有足夠時間繞過防護並抓取
-        const proxyResponse = await fetch(proxyUrl, { signal: AbortSignal.timeout(40000) });
-        if (!proxyResponse.ok) return Response.json({ error: '無法解析該網址，目標網站可能阻擋外部讀取' }, { status: 400 });
-        const proxyData = await proxyResponse.json();
+        // 給 Proxy 充裕的 20 秒時間突破 Cloudflare 類型的防護
+        const proxyResponse = await fetch(proxyUrl, { signal: AbortSignal.timeout(20000) });
         
+        if (!proxyResponse.ok) {
+          return Response.json({ error: '直接存取被阻擋，且代理服務亦無法解析' }, { status: 400 });
+        }
+        
+        const proxyData = await proxyResponse.json();
         if (!proxyData.contents) {
-          throw new Error('EMPTY_CONTENTS');
+          return Response.json({ error: '代理服務回傳空內容，請確認目標網址是否正確' }, { status: 400 });
         }
         html = proxyData.contents;
       } catch (proxyErr) {
@@ -96,7 +103,7 @@ export async function POST(request) {
     addResult('Technical', 'Charset', $('meta[charset]').length > 0 ? 5 : 0, 'pass', '編碼設定');
     addResult('Technical', 'Viewport', $('meta[name="viewport"]').length > 0 ? 5 : 0, 'pass', '行動裝置優化');
 
-    // --- 結構化資料偵測 (不計分，精確列出名稱) ---
+    // --- 結構化資料偵測 (不計分，精確列出名稱，無深層遞迴) ---
     const schemas = $('script[type="application/ld+json"]');
     let schemaObjCount = 0;
     let detectedTypes = [];
@@ -114,12 +121,18 @@ export async function POST(request) {
                 detectedTypes.push(node['@type']); 
               }
             }
-            Object.values(node).forEach(val => {
-              if (val && typeof val === 'object') extractType(val);
-            });
           };
-          extractType(content);
-        } catch (e) {}
+          // 僅尋找頂層與 @graph，不把底層小屬性算入
+          if (Array.isArray(content)) {
+            content.forEach(extractType);
+          } else if (content['@graph'] && Array.isArray(content['@graph'])) {
+            content['@graph'].forEach(extractType);
+          } else {
+            extractType(content);
+          }
+        } catch (e) {
+          // 忽略單一區塊解析失敗
+        }
       });
       
       const uniqueTypes = [...new Set(detectedTypes)].filter(Boolean);
@@ -134,7 +147,8 @@ export async function POST(request) {
     }
 
     const totalScore = Math.round((earnedPoints / maxPoints) * 100);
-    return Response.json({ url, totalScore, results });
+    // 回傳加入 usedProxy 幫助除錯
+    return Response.json({ url, totalScore, results, usedProxy });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
