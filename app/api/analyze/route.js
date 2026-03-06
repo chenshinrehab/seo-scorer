@@ -6,31 +6,38 @@ export async function POST(request) {
   try {
     const { url } = await request.json();
     let html = '';
+    let usedProxy = false;
     
-    // 嘗試獲取網頁
+    // 策略 1：嘗試直接存取 (給予 8 秒)
     try {
       const directResponse = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
         },
-        signal: AbortSignal.timeout(4000) 
+        signal: AbortSignal.timeout(8000) 
       });
 
       if (directResponse.ok) {
         html = await directResponse.text();
+      } else if (directResponse.status === 403 || directResponse.status === 401) {
+        throw new Error('BLOCKED_BY_WAF'); // 被阻擋，觸發 Error 進入 Catch 使用 Proxy
       } else {
         throw new Error('DIRECT_FAILED');
       }
     } catch (err) {
+      // 策略 2：直接存取失敗，改用第三方 API (Proxy) 繞過防爬蟲機制
+      usedProxy = true;
       const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
       try {
-        const proxyResponse = await fetch(proxyUrl, { signal: AbortSignal.timeout(4000) });
-        if (!proxyResponse.ok) return Response.json({ error: '無法解析該網址' }, { status: 400 });
+        // 放寬 Proxy 的讀取時間至 25 秒，確保第三方有充足時間抓取目標網頁
+        const proxyResponse = await fetch(proxyUrl, { signal: AbortSignal.timeout(25000) });
+        if (!proxyResponse.ok) return Response.json({ error: '直接存取被阻擋，且代理服務亦無法解析' }, { status: 400 });
         const proxyData = await proxyResponse.json();
         html = proxyData.contents;
       } catch (proxyErr) {
-        return Response.json({ error: '連線逾時，請檢查網址有效性' }, { status: 400 });
+        return Response.json({ error: '第三方 API 連線逾時，請檢查網址是否有效' }, { status: 400 });
       }
     }
 
@@ -114,7 +121,7 @@ export async function POST(request) {
     }
 
     const totalScore = Math.round((earnedPoints / maxPoints) * 100);
-    return Response.json({ url, totalScore, results });
+    return Response.json({ url, totalScore, results, usedProxy });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

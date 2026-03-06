@@ -34,19 +34,8 @@ export default function Home() {
     }
   };
 
-  // 1. 修正手機版列印機制：加入偵測與延遲觸發
   const exportPDF = () => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      // 提示使用者，避免 In-App 瀏覽器直接擋下沒反應
-      alert('手機版若無跳出列印畫面，請點擊右上角「...」使用系統瀏覽器 (Safari/Chrome) 開啟，或改用電腦版操作。');
-    }
-    
-    // 使用 setTimeout 給予瀏覽器反應時間，避免立刻被攔截
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    window.print();
   };
 
   const criticalFixes = report?.results.filter(item => item.status === 'fail') || [];
@@ -69,21 +58,32 @@ export default function Home() {
         
         {/* 搜尋與標題區塊 */}
         <div className="bg-white/80 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] border border-white text-center print:hidden animate-bounce-in">
+          
           <div className="mb-8 flex justify-center">
-            <a href="https://ai-zeta-dusky-55.vercel.app/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group transition-all duration-500 hover:scale-105">
+            <a 
+              href="https://ai-zeta-dusky-55.vercel.app/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="flex items-center gap-4 group transition-all duration-500 hover:scale-105"
+            >
               <div className="p-3 bg-blue-50 rounded-2xl group-hover:bg-blue-600 group-hover:rotate-12 transition-all duration-500">
-                <img src="/favicon.svg" alt="Logo" className="w-10 h-10 group-hover:invert transition-all" />
+                <img src="/favicon.svg" alt="智網 Logo" className="w-10 h-10 md:w-12 md:h-12 drop-shadow-sm" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                智網 SEO 評估
-              </h1>
+              <div className="flex flex-col text-left">
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                  網站自我評估
+                </h1>
+                <span className="text-sm md:text-base text-slate-500 font-bold mt-1 tracking-widest uppercase">
+                  智網AI引擎
+                </span>
+              </div>
             </a>
           </div>
 
           <form onSubmit={handleAnalyze} className="flex flex-col md:flex-row gap-4 justify-center max-w-2xl mx-auto">
             <input
               type="url"
-              placeholder="輸入網址，例如 https://google.com"
+              placeholder="輸入網址，例如 https://example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required
@@ -97,16 +97,29 @@ export default function Home() {
             </button>
           </form>
           
+          {!report && !loading && (
+            <div className="mt-8 flex justify-center animate-in fade-in duration-500">
+              <a 
+                href="https://ai-zeta-dusky-55.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full md:w-auto px-10 py-4 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all text-base"
+              >
+                💡 學習更多網頁架設及 SEO
+              </a>
+            </div>
+          )}
+
           {error && <div className="mt-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-100 rounded-2xl text-red-600 font-bold animate-shake">⚠️ {error}</div>}
         </div>
 
         {report && (
           <div className="space-y-8 pb-24 report-container">
             
-            {/* 標題欄 */}
-            <div className="flex flex-col md:flex-row justify-between items-end px-4 gap-6">
-              <div className="space-y-1">
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight">分析完成！報告已生成</h2>
+            {/* 報告標題與匯出按鈕 */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-2 pb-2 border-b-2 border-slate-200 gap-4">
+              <div>
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">分析完成！報告已生成</h2>
                 <div className="flex items-center gap-2 text-blue-600 font-mono text-sm bg-blue-50/50 px-3 py-1 rounded-full border border-blue-100/50 break-all">
                   <span className="relative flex h-2 w-2 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -116,8 +129,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex gap-3 w-full md:w-auto print:hidden">
-                <button onClick={() => setReport(null)} className="flex-1 md:flex-none bg-white text-slate-600 px-6 py-3 rounded-2xl font-bold border border-slate-200 hover:bg-slate-50 transition-all shadow-sm">重新測試</button>
-                {/* 2. 最顯眼的紅色匯出按鈕 */}
+                <button onClick={() => {sessionStorage.removeItem('last_seo_report'); setReport(null);}} className="flex-1 md:flex-none bg-white text-slate-600 px-6 py-3 rounded-2xl font-bold border border-slate-200 hover:bg-slate-50 transition-all shadow-sm">重新測試</button>
                 <button onClick={exportPDF} className="flex-1 md:flex-none bg-red-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-red-700 hover:shadow-xl hover:shadow-red-200 transition-all shadow-lg">🖨️ 匯出 PDF 報告</button>
               </div>
             </div>
@@ -177,13 +189,13 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 3. 在改善建議這裡，放回原本的三顆重要按鈕 */}
+              {/* 三大重要按鈕區塊 */}
               <div className="pt-6 border-t border-slate-100 flex flex-col md:flex-row gap-4 print:hidden">
                 <a 
                   href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-50 text-blue-700 rounded-[1.5rem] text-sm font-black border border-blue-100 hover:bg-blue-600 hover:text-white transition-colors shadow-sm hover:shadow-md"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-50 text-blue-700 rounded-[1.5rem] text-sm font-black border border-blue-100 hover:bg-blue-600 hover:text-white transition-colors shadow-sm hover:shadow-md hover:-translate-y-1"
                 >
                   🚀 官方 PageSpeed 測速
                 </a>
@@ -191,7 +203,7 @@ export default function Home() {
                   href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-700 rounded-[1.5rem] text-sm font-black border border-emerald-100 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm hover:shadow-md"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-700 rounded-[1.5rem] text-sm font-black border border-emerald-100 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm hover:shadow-md hover:-translate-y-1"
                 >
                   🛠️ 官方 Schema 報告
                 </a>
@@ -199,9 +211,9 @@ export default function Home() {
                   href="https://ai-zeta-dusky-55.vercel.app/" 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-orange-50 text-orange-700 rounded-[1.5rem] text-sm font-black border border-orange-100 hover:bg-orange-500 hover:text-white transition-colors shadow-sm hover:shadow-md"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-orange-50 text-orange-700 rounded-[1.5rem] text-sm font-black border border-orange-100 hover:bg-orange-500 hover:text-white transition-colors shadow-sm hover:shadow-md hover:-translate-y-1"
                 >
-                  💡 智網 網頁製作與SEO
+                  💡 學習網頁架設與SEO
                 </a>
               </div>
             </div>
@@ -262,7 +274,7 @@ export default function Home() {
         .report-container > *:nth-child(3) { animation-delay: 0.4s; }
         .report-container > .section-card:nth-child(n+4) { animation-delay: 0.5s; }
 
-        /* 重要：強制在列印 PDF 時顯示色彩 */
+        /* 強制在列印 PDF 時顯示色彩 */
         .print-force-color {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
