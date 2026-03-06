@@ -28,19 +28,29 @@ export default function Home() {
       setReport(data);
       sessionStorage.setItem('last_seo_report', JSON.stringify(data));
     } catch (err) {
-      setError(err.message || '發生未知錯誤，請稍後再試');
+      setError(err.message || '連線發生錯誤，請稍後再試');
     } finally {
       setLoading(false);
     }
   };
 
+  // 1. 修正手機版列印機制：加入偵測與延遲觸發
   const exportPDF = () => {
-    window.print();
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // 提示使用者，避免 In-App 瀏覽器直接擋下沒反應
+      alert('手機版若無跳出列印畫面，請點擊右上角「...」使用系統瀏覽器 (Safari/Chrome) 開啟，或改用電腦版操作。');
+    }
+    
+    // 使用 setTimeout 給予瀏覽器反應時間，避免立刻被攔截
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   const criticalFixes = report?.results.filter(item => item.status === 'fail') || [];
   const warnings = report?.results.filter(item => item.status === 'warning') || [];
-
   const groupedResults = report?.results.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
@@ -48,166 +58,174 @@ export default function Home() {
   }, {});
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 print:bg-white print:p-0 overflow-x-hidden">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <main className="min-h-screen bg-[#f8fafc] p-4 md:p-8 text-slate-900 print:bg-white print:p-0 overflow-x-hidden relative">
+      {/* 動態背景裝飾 */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden print:hidden">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-blue-100 rounded-full blur-[120px] opacity-50 animate-pulse"></div>
+        <div className="absolute bottom-[10%] right-[0%] w-[30%] h-[30%] bg-indigo-100 rounded-full blur-[100px] opacity-40"></div>
+      </div>
+
+      <div className="max-w-4xl mx-auto space-y-8 relative z-10">
         
         {/* 搜尋與標題區塊 */}
-        <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 text-center print:hidden">
-          <div className="mb-6 flex justify-center">
-            <a 
-              href="https://ai-zeta-dusky-55.vercel.app/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center gap-3 group transition-transform hover:scale-105"
-            >
-              <img src="/favicon.svg" alt="智網 Logo" className="w-10 h-10 md:w-12 md:h-12 drop-shadow-sm" />
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-blue-600 group-hover:text-blue-700 transition-colors">
-                智網 網站 SEO 評估
+        <div className="bg-white/80 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] border border-white text-center print:hidden animate-bounce-in">
+          <div className="mb-8 flex justify-center">
+            <a href="https://ai-zeta-dusky-55.vercel.app/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group transition-all duration-500 hover:scale-105">
+              <div className="p-3 bg-blue-50 rounded-2xl group-hover:bg-blue-600 group-hover:rotate-12 transition-all duration-500">
+                <img src="/favicon.svg" alt="Logo" className="w-10 h-10 group-hover:invert transition-all" />
+              </div>
+              <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                智網 SEO 評估
               </h1>
             </a>
           </div>
 
-          <form onSubmit={handleAnalyze} className="flex flex-col md:flex-row gap-3 justify-center max-w-2xl mx-auto">
+          <form onSubmit={handleAnalyze} className="flex flex-col md:flex-row gap-4 justify-center max-w-2xl mx-auto">
             <input
               type="url"
-              placeholder="https://example.com"
+              placeholder="輸入網址，例如 https://google.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required
-              className="flex-1 px-5 py-3 border-2 border-slate-100 rounded-2xl focus:border-blue-500 outline-none transition-all bg-slate-50"
+              className="flex-1 px-6 py-4 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 outline-none transition-all bg-white/50 text-lg shadow-inner"
             />
             <button
               disabled={loading}
-              className="px-8 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-md active:scale-95 disabled:opacity-50 transition-all min-w-[140px]"
+              className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-2xl hover:shadow-[0_10px_25px_-5px_rgba(37,99,235,0.4)] hover:-translate-y-1 active:scale-95 disabled:opacity-50 transition-all text-lg whitespace-nowrap"
             >
-              {loading ? '分析中...' : '開始分析'}
+              {loading ? '探測中...' : '開始探測'}
             </button>
           </form>
           
-          {!report && !loading && (
-            <div className="mt-6 flex justify-center">
-              <a 
-                href="https://ai-zeta-dusky-55.vercel.app/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full md:w-auto px-8 py-3 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 shadow-md transition-all"
-              >
-                💡 需要建立具備強大 SEO 的網站？點擊了解智網服務
-              </a>
-            </div>
-          )}
-          {error && <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 font-bold">⚠️ {error}</div>}
+          {error && <div className="mt-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-100 rounded-2xl text-red-600 font-bold animate-shake">⚠️ {error}</div>}
         </div>
 
         {report && (
-          <div className="space-y-6 pb-20 report-container">
+          <div className="space-y-8 pb-24 report-container">
             
-            {/* 報告標題與匯出按鈕 */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-2 pb-2 border-b-2 border-slate-200 gap-4">
-              <div>
-                <h2 className="text-2xl font-black text-slate-800">網頁 SEO 評估報告</h2>
-                <p className="text-slate-500 text-sm font-mono mt-1">{report.url}</p>
+            {/* 標題欄 */}
+            <div className="flex flex-col md:flex-row justify-between items-end px-4 gap-6">
+              <div className="space-y-1">
+                <h2 className="text-3xl font-black text-slate-800 tracking-tight">分析完成！報告已生成</h2>
+                <div className="flex items-center gap-2 text-blue-600 font-mono text-sm bg-blue-50/50 px-3 py-1 rounded-full border border-blue-100/50 break-all">
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                  </span>
+                  {report.url}
+                </div>
               </div>
               <div className="flex gap-3 w-full md:w-auto print:hidden">
-                <button 
-                  onClick={() => {sessionStorage.removeItem('last_seo_report'); setReport(null);}} 
-                  className="flex-1 md:flex-none bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-300 transition-colors"
-                >
-                  清除重測
-                </button>
-                <button 
-                  onClick={exportPDF} 
-                  className="flex-1 md:flex-none bg-red-600 text-white px-8 py-2.5 rounded-xl font-black text-sm hover:bg-red-700 shadow-md hover:shadow-lg transition-all"
-                >
-                  🖨️ 匯出 PDF 報告
-                </button>
+                <button onClick={() => setReport(null)} className="flex-1 md:flex-none bg-white text-slate-600 px-6 py-3 rounded-2xl font-bold border border-slate-200 hover:bg-slate-50 transition-all shadow-sm">重新測試</button>
+                {/* 2. 最顯眼的紅色匯出按鈕 */}
+                <button onClick={exportPDF} className="flex-1 md:flex-none bg-red-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-red-700 hover:shadow-xl hover:shadow-red-200 transition-all shadow-lg">🖨️ 匯出 PDF 報告</button>
               </div>
             </div>
 
-            {/* 總分展示區塊 (包含修正後的進度條) */}
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-8 print:shadow-none print:border-slate-100">
-              <div className="flex flex-col items-center md:items-start text-center md:text-left flex-1">
-                <span className="text-slate-400 font-black uppercase text-xs tracking-widest mb-1">On-Page SEO Score</span>
-                <div className="flex items-baseline gap-2">
-                  <div className={`text-6xl font-black ${report.totalScore >= 80 ? 'text-green-500' : report.totalScore >= 60 ? 'text-orange-500' : 'text-red-500'}`}>
-                    {report.totalScore}
+            {/* 分數與進度條 */}
+            <div className="group bg-gradient-to-br from-white via-white to-blue-50/30 p-10 rounded-[2.5rem] shadow-xl border border-white flex flex-col md:flex-row items-center gap-10 print:shadow-none print:border-slate-200">
+              <div className="relative">
+                <div className={`w-40 h-40 rounded-full border-[12px] flex flex-col items-center justify-center transition-all duration-1000 ${report.totalScore >= 80 ? 'border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.3)]' : report.totalScore >= 60 ? 'border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.3)]' : 'border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.3)]'} print-force-color`}>
+                  <span className="text-5xl font-black">{report.totalScore}</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Score</span>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-6 w-full">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <h3 className="text-xl font-black text-slate-800">優化完成度</h3>
+                    <span className="text-slate-500 font-bold text-sm">基礎優化起步 · {report.totalScore}%</span>
                   </div>
-                  <span className="text-slate-400 font-bold">/ 100</span>
+                  <div className="w-full h-5 bg-slate-100 rounded-2xl overflow-hidden p-1 shadow-inner print:border print:border-slate-100">
+                    <div 
+                      className={`h-full rounded-xl transition-all duration-1000 ease-out print-force-color ${report.totalScore >= 80 ? 'bg-gradient-to-r from-green-400 to-green-600' : report.totalScore >= 60 ? 'bg-gradient-to-r from-orange-400 to-orange-600' : 'bg-gradient-to-r from-red-400 to-red-600'}`} 
+                      style={{ width: `${report.totalScore}%` }}
+                    ></div>
+                  </div>
                 </div>
-              </div>
-
-              <div className="w-full flex-1 md:max-w-md">
-                <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
-                  <span>基礎優化起步</span>
-                  <span className="text-slate-700">體質完成度 {report.totalScore}%</span>
-                  <span>完美</span>
-                </div>
-                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner print:border print:border-slate-100">
-                  <div 
-                    className={`h-full transition-all duration-1000 ease-out print-force-color ${report.totalScore >= 80 ? 'bg-green-500' : report.totalScore >= 60 ? 'bg-orange-500' : 'bg-red-500'}`} 
-                    style={{ width: `${report.totalScore}%` }}
-                  ></div>
-                </div>
+                <p className="text-slate-500 text-sm font-medium leading-relaxed">我們對網頁的 Meta、標題結構、內容品質及技術 SEO 進行了全面掃描。以下是您的優化建議：</p>
               </div>
             </div>
 
-            {/* 改善建議統整 */}
-            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200 print:shadow-none">
-              <h2 className="text-lg font-black mb-5 flex items-center gap-2 text-slate-800">📋 改善建議統整</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <h3 className="text-red-600 font-black text-sm border-b border-red-100 pb-2">🚨 優先修正項目 ({criticalFixes.length})</h3>
-                  {criticalFixes.length > 0 ? criticalFixes.map((item, i) => (
-                    <div key={i} className="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-700 border border-red-100 print:bg-white print:border-red-200">
-                      {item.name}: {item.message}
-                    </div>
-                  )) : <div className="text-xs text-slate-400 font-medium">目前無嚴重錯誤</div>}
+            {/* 建議區塊與重要三大按鈕 */}
+            <div className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-50 print:shadow-none">
+              
+              <h3 className="text-xl font-black mb-6 flex items-center gap-2 text-slate-800">📋 改善建議統整</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="space-y-4">
+                  <h4 className="text-red-600 font-black text-sm flex items-center gap-2 border-b border-red-100 pb-2">🚨 優先修正 ({criticalFixes.length})</h4>
+                  <div className="space-y-3">
+                    {criticalFixes.length > 0 ? criticalFixes.map((item, i) => (
+                      <div key={i} className="p-4 bg-red-50/50 rounded-2xl text-sm font-bold text-red-700 border border-red-100/50 hover:bg-red-50 transition-colors print:bg-white print:border-red-200">
+                        {item.name}: {item.message}
+                      </div>
+                    )) : <div className="text-slate-400 font-bold py-4 italic text-sm">完美無缺，繼續保持！</div>}
+                  </div>
                 </div>
-                <div className="space-y-3">
-                  <h3 className="text-orange-600 font-black text-sm border-b border-orange-100 pb-2">⚠️ 優化建議 ({warnings.length})</h3>
-                  {warnings.length > 0 ? warnings.map((item, i) => (
-                    <div key={i} className="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold text-orange-700 border border-orange-100 print:bg-white print:border-orange-200">
-                      {item.name}: {item.message}
-                    </div>
-                  )) : <div className="text-xs text-slate-400 font-medium">目前無優化建議</div>}
+                
+                <div className="space-y-4">
+                  <h4 className="text-orange-600 font-black text-sm flex items-center gap-2 border-b border-orange-100 pb-2">⚠️ 優化建議 ({warnings.length})</h4>
+                  <div className="space-y-3">
+                    {warnings.length > 0 ? warnings.map((item, i) => (
+                      <div key={i} className="p-4 bg-orange-50/50 rounded-2xl text-sm font-bold text-orange-700 border border-orange-100/50 hover:bg-orange-50 transition-colors print:bg-white print:border-orange-200">
+                        {item.name}: {item.message}
+                      </div>
+                    )) : <div className="text-slate-400 font-bold py-4 italic text-sm">無優化建議</div>}
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3 print:hidden">
-                <a href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold border border-blue-100 hover:bg-blue-600 hover:text-white transition-colors">🚀 官方 PageSpeed 測速</a>
-                <a href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold border border-emerald-100 hover:bg-emerald-500 hover:text-white transition-colors">🛠️ 官方 Schema 報告</a>
-                <a href="https://ai-zeta-dusky-55.vercel.app/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-orange-50 text-orange-700 rounded-xl text-sm font-bold border border-orange-100 hover:bg-orange-500 hover:text-white transition-colors">💡 智網 網頁製作與SEO</a>
+              {/* 3. 在改善建議這裡，放回原本的三顆重要按鈕 */}
+              <div className="pt-6 border-t border-slate-100 flex flex-col md:flex-row gap-4 print:hidden">
+                <a 
+                  href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-blue-50 text-blue-700 rounded-[1.5rem] text-sm font-black border border-blue-100 hover:bg-blue-600 hover:text-white transition-colors shadow-sm hover:shadow-md"
+                >
+                  🚀 官方 PageSpeed 測速
+                </a>
+                <a 
+                  href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-emerald-50 text-emerald-700 rounded-[1.5rem] text-sm font-black border border-emerald-100 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm hover:shadow-md"
+                >
+                  🛠️ 官方 Schema 報告
+                </a>
+                <a 
+                  href="https://ai-zeta-dusky-55.vercel.app/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-orange-50 text-orange-700 rounded-[1.5rem] text-sm font-black border border-orange-100 hover:bg-orange-500 hover:text-white transition-colors shadow-sm hover:shadow-md"
+                >
+                  💡 智網 網頁製作與SEO
+                </a>
               </div>
             </div>
 
-            {/* 詳細檢測項目 */}
-            <div className="space-y-6">
+            {/* 詳情列表 */}
+            <div className="space-y-10">
               {Object.keys(groupedResults).map((category) => (
-                <div key={category} className="space-y-3 break-inside-avoid section-card">
-                  <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center">
-                    <span className="w-6 h-1 bg-blue-500 mr-2 rounded-full"></span>{category}
-                  </h2>
-                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:shadow-none">
+                <div key={category} className="space-y-4 break-inside-avoid section-card">
+                  <div className="flex items-center gap-4 px-2">
+                    <h2 className="text-xl font-black text-slate-800 tracking-tight">{category}</h2>
+                    <div className="flex-1 h-[2px] bg-gradient-to-r from-slate-200 to-transparent"></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {groupedResults[category].map((item, idx) => (
-                      <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-4 border-b last:border-0 border-slate-100 hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 pr-4 mb-2 md:mb-0">
-                          <h3 className="font-bold text-slate-800 text-sm">{item.name}</h3>
-                          <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">{item.message}</p>
+                      <div key={idx} className="bg-white p-6 rounded-[1.5rem] shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-100 transition-all flex justify-between items-start gap-4 print:shadow-none print:border-slate-200">
+                        <div className="space-y-1">
+                          <h4 className="font-black text-slate-800">{item.name}</h4>
+                          <p className="text-xs text-slate-500 font-medium leading-relaxed">{item.message}</p>
                         </div>
-                        <div className="flex items-center justify-between md:justify-end min-w-[140px] gap-4">
-                          <span className={`px-2.5 py-1 rounded border text-[10px] font-black uppercase tracking-wider print-force-color ${
-                            item.status === 'pass' ? 'bg-green-50 text-green-700 border-green-200' : 
-                            item.status === 'warning' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-700 border-red-200'
-                          }`}>
-                            {item.status}
-                          </span>
-                          <div className="w-[45px] text-right">
-                            {item.score !== null ? (
-                              <><span className="font-bold text-slate-700">{item.score}</span><span className="text-slate-300 text-xs font-bold">/5</span></>
-                            ) : (
-                              <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">不計分</span>
-                            )}
-                          </div>
+                        <div className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest print-force-color ${
+                          item.status === 'pass' ? 'bg-green-100 text-green-700' : 
+                          item.status === 'warning' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {item.status}
                         </div>
                       </div>
                     ))}
@@ -220,20 +238,29 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
-        @keyframes slideUpFade {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes bounceIn {
+          0% { opacity: 0; transform: translateY(-50px) scale(0.9); }
+          70% { opacity: 1; transform: translateY(10px) scale(1.02); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(40px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
         }
         
-        .report-container > * {
-          opacity: 0;
-          animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
+        .animate-bounce-in { animation: bounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .animate-shake { animation: shake 0.3s ease-in-out infinite; }
+        
+        .report-container > * { opacity: 0; animation: fadeInUp 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
         .report-container > *:nth-child(1) { animation-delay: 0.1s; }
-        .report-container > *:nth-child(2) { animation-delay: 0.2s; }
-        .report-container > *:nth-child(3) { animation-delay: 0.3s; }
-        .report-container > *:nth-child(4) .section-card:nth-child(1) { animation-delay: 0.4s; }
-        .report-container > *:nth-child(4) .section-card:nth-child(2) { animation-delay: 0.5s; }
+        .report-container > *:nth-child(2) { animation-delay: 0.25s; }
+        .report-container > *:nth-child(3) { animation-delay: 0.4s; }
+        .report-container > .section-card:nth-child(n+4) { animation-delay: 0.5s; }
 
         /* 重要：強制在列印 PDF 時顯示色彩 */
         .print-force-color {
@@ -245,10 +272,9 @@ export default function Home() {
         @media print {
           body { background: white !important; }
           .print\\:hidden { display: none !important; }
-          .shadow-sm, .shadow-lg { box-shadow: none !important; }
-          .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 8px !important; }
-          .break-inside-avoid { break-inside: avoid; }
           .report-container > * { opacity: 1 !important; transform: none !important; animation: none !important; }
+          .shadow-xl, .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+          .rounded-[2.5rem], .rounded-[2rem], .rounded-[1.5rem] { border-radius: 12px !important; }
         }
       `}</style>
     </main>
