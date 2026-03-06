@@ -8,14 +8,13 @@ export async function POST(request) {
     let html = '';
     let usedProxy = false;
 
-    // 嘗試存取網頁
     try {
       const directResponse = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         },
-        signal: AbortSignal.timeout(8000) 
+        signal: AbortSignal.timeout(4000) 
       });
 
       if (directResponse.ok) {
@@ -26,10 +25,14 @@ export async function POST(request) {
     } catch (err) {
       usedProxy = true;
       const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-      const proxyResponse = await fetch(proxyUrl);
-      if (!proxyResponse.ok) return Response.json({ error: '無法解析該網址，請檢查網址有效性' }, { status: 400 });
-      const proxyData = await proxyResponse.json();
-      html = proxyData.contents;
+      try {
+        const proxyResponse = await fetch(proxyUrl, { signal: AbortSignal.timeout(4000) });
+        if (!proxyResponse.ok) return Response.json({ error: '無法解析該網址，請檢查網址有效性' }, { status: 400 });
+        const proxyData = await proxyResponse.json();
+        html = proxyData.contents;
+      } catch (proxyErr) {
+        return Response.json({ error: '連線逾時或遭阻擋，請確認網址是否正確' }, { status: 400 });
+      }
     }
 
     if (!html) return Response.json({ error: '未能獲取網頁內容' }, { status: 400 });
@@ -92,7 +95,7 @@ export async function POST(request) {
     addResult('Technical', 'Charset', ($('meta[charset]').length > 0 || $('meta[http-equiv="Content-Type"]').length > 0) ? 5 : 0, ($('meta[charset]').length > 0 || $('meta[http-equiv="Content-Type"]').length > 0) ? 'pass' : 'fail', '編碼設定');
     addResult('Technical', 'Viewport', $('meta[name="viewport"]').length > 0 ? 5 : 0, $('meta[name="viewport"]').length > 0 ? 'pass' : 'fail', '行動裝置優化設定');
 
-    // --- 結構化資料深度偵測 (確保印出所有名稱) ---
+    // --- 結構化資料偵測 ---
     const schemas = $('script[type="application/ld+json"]');
     let schemaObjCount = 0;
     let detectedTypes = [];
@@ -101,35 +104,24 @@ export async function POST(request) {
       schemas.each((i, el) => {
         try {
           const content = JSON.parse($(el).html());
-          
-          // 深度遞迴尋找 @type，確保連 @graph 或深層陣列內的名字都不漏掉
-          const findTypes = (node) => {
-            if (!node || typeof node !== 'object') return;
-            if (node['@type']) {
+          const extractType = (node) => {
+            if (node && node['@type']) {
               schemaObjCount++;
-              if (Array.isArray(node['@type'])) {
-                detectedTypes.push(...node['@type']);
-              } else {
-                detectedTypes.push(node['@type']);
-              }
+              const typeName = Array.isArray(node['@type']) ? node['@type'].join('/') : node['@type'];
+              detectedTypes.push(typeName);
             }
-            // 繼續往下找
-            Object.values(node).forEach(val => {
-              if (typeof val === 'object') findTypes(val);
-            });
           };
-
-          findTypes(content);
-        } catch (e) {
-          // 忽略單一區塊解析失敗
-        }
+          if (Array.isArray(content)) {
+            content.forEach(extractType);
+          } else if (content['@graph'] && Array.isArray(content['@graph'])) {
+            content['@graph'].forEach(extractType);
+          } else {
+            extractType(content);
+          }
+        } catch (e) {}
       });
-
-      // 去除重複的名稱
       const uniqueTypes = [...new Set(detectedTypes)].filter(Boolean);
-      
-      if (uniqueTypes.length > 0) {
-        // 精確列出數量與陣列名稱
+      if (schemaObjCount > 0) {
         addResult('Schema Validation', '結構化資料', null, 'pass', `共偵測到 ${schemaObjCount} 個物件，包含類型：${uniqueTypes.join(', ')}`);
       } else {
         addResult('Schema Validation', '結構化資料', null, 'warning', '偵測到 JSON-LD 標籤，但缺少有效的 @type 屬性');
