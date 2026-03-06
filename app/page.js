@@ -7,25 +7,15 @@ export default function Home() {
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
 
-  // 新增：初始化時從 sessionStorage 讀取快取資料
   useEffect(() => {
-    const savedReport = sessionStorage.getItem('last_seo_report');
-    const savedUrl = sessionStorage.getItem('last_seo_url');
-    if (savedReport) {
-      try {
-        setReport(JSON.parse(savedReport));
-        if (savedUrl) setUrl(savedUrl);
-      } catch (e) {
-        console.error("解析快取資料失敗", e);
-      }
-    }
+    const saved = sessionStorage.getItem('last_seo_report');
+    if (saved) setReport(JSON.parse(saved));
   }, []);
 
   const handleAnalyze = async (e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
     setLoading(true);
     setError('');
-    setReport(null);
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
@@ -34,12 +24,8 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      
-      // 儲存到 State 與 sessionStorage
       setReport(data);
       sessionStorage.setItem('last_seo_report', JSON.stringify(data));
-      sessionStorage.setItem('last_seo_url', url);
-      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -47,33 +33,21 @@ export default function Home() {
     }
   };
 
-  // 1. 改善建議統整邏輯
   const criticalFixes = report?.results.filter(item => item.status === 'fail') || [];
   const warnings = report?.results.filter(item => item.status === 'warning') || [];
 
-  // 2. 分組邏輯
   const groupedResults = report?.results.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {});
 
-  // 3. PDF 匯出功能 - 加入手機版判斷
-  const exportPDF = () => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) {
-      alert('請使用電腦版本下載 PDF 報告');
-    } else {
-      window.print();
-    }
-  };
-
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 print:bg-white print:p-0">
       <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* 搜尋區塊 - 列印時隱藏 */}
-        <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 text-center print:hidden">
+        {/* 搜尋與標題區塊 */}
+        <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 text-center print:hidden">
           <h1 className="text-3xl font-black mb-6 tracking-tight text-blue-600">智網 網站 SEO 評估</h1>
           <form onSubmit={handleAnalyze} className="flex flex-col md:flex-row gap-3 justify-center">
             <input
@@ -86,182 +60,174 @@ export default function Home() {
             />
             <button
               disabled={loading}
-              className="px-8 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-200 active:scale-95 disabled:opacity-50 transition-all"
+              className="px-8 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-md active:scale-95 disabled:opacity-50 transition-all"
             >
-              {loading ? '分析中...' : '立即分析'}
+              {loading ? '分析中...' : '開始分析'}
             </button>
           </form>
-
-          {/* 新增的推廣按鈕：手機版跟搜尋框一樣大，顏色明顯 */}
           {!report && !loading && (
             <div className="mt-6 flex justify-center">
               <a 
-                href="https://ai-zeta-dusky-55.vercel.app/"
-                target="_blank"
+                href="https://ai-zeta-dusky-55.vercel.app/" 
+                target="_blank" 
                 rel="noopener noreferrer"
-                className="w-full md:w-auto inline-flex items-center justify-center px-10 py-3 bg-orange-500 text-white font-black rounded-2xl hover:bg-orange-600 shadow-lg shadow-orange-200 active:scale-95 transition-all text-lg"
+                className="w-full md:w-auto px-8 py-3 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 shadow-md transition-all"
               >
-                💡 智網 網頁製作與SEO
+                💡 需要建立具備強大 SEO 的網站？點擊了解智網服務
               </a>
             </div>
           )}
-
           {error && <p className="text-red-500 mt-4 font-bold">⚠️ {error}</p>}
         </div>
 
         {report && (
-          <div className="space-y-8 pb-20">
+          <div className="space-y-6 pb-20">
             
-            {/* 報告標題與操作按鈕 */}
-            <div className="flex justify-between items-center px-2">
+            {/* 報告標題與最顯眼的匯出按鈕 */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-2 pb-2 border-b-2 border-slate-200 gap-4">
               <div>
-                <h2 className="text-2xl font-black text-slate-800">我的網頁評估分數</h2>
-                <p className="text-slate-400 text-sm font-mono">{report.url}</p>
+                <h2 className="text-2xl font-black text-slate-800">網頁 SEO 評估報告</h2>
+                <p className="text-slate-500 text-sm font-mono mt-1">{report.url}</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3 w-full md:w-auto print:hidden">
                 <button 
-                  onClick={() => {
-                    sessionStorage.removeItem('last_seo_report');
-                    setReport(null);
-                  }}
-                  className="bg-slate-200 text-slate-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-slate-300 transition-all print:hidden"
+                  onClick={() => {sessionStorage.removeItem('last_seo_report'); setReport(null);}} 
+                  className="flex-1 md:flex-none bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-300 transition-colors"
                 >
-                  清除
+                  清除重測
                 </button>
                 <button 
-                  onClick={exportPDF}
-                  className="bg-red-600 text-white px-5 py-2 md:px-8 md:py-3 rounded-xl font-bold text-sm md:text-base hover:bg-red-700 shadow-lg shadow-red-200 transition-all print:hidden"
+                  onClick={() => window.print()} 
+                  className="flex-1 md:flex-none bg-red-600 text-white px-8 py-2.5 rounded-xl font-black text-sm hover:bg-red-700 shadow-md hover:shadow-lg transition-all"
                 >
-                  匯出報告
+                  🖨️ 匯出 PDF 報告
                 </button>
               </div>
             </div>
 
-            {/* 總分卡片 */}
-            <div className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center border-b-8 border-blue-500 print:shadow-none print:border-slate-200">
-              <span className="text-slate-400 font-black uppercase text-xs tracking-widest">Global SEO Score</span>
-              <div className={`text-7xl font-black my-2 ${report.totalScore >= 80 ? 'text-green-500' : report.totalScore >= 60 ? 'text-orange-500' : 'text-red-500'}`}>
-                {report.totalScore}
+            {/* 總分展示 (緊湊設計) */}
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-8 print:shadow-none">
+              <div className="flex flex-col items-center md:items-start text-center md:text-left flex-1">
+                <span className="text-slate-400 font-black uppercase text-xs tracking-widest mb-1">On-Page SEO Score</span>
+                <div className="flex items-baseline gap-2">
+                  <div className={`text-6xl font-black ${report.totalScore >= 80 ? 'text-green-500' : report.totalScore >= 60 ? 'text-orange-500' : 'text-red-500'}`}>
+                    {report.totalScore}
+                  </div>
+                  <span className="text-slate-400 font-bold">/ 100</span>
+                </div>
               </div>
-            </div>
 
-            {/* --- 改善建議與進階連結 --- */}
-            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 print:shadow-none">
-              <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-                <span className="bg-blue-600 text-white p-1 rounded">📋</span> 改善建議統整
-              </h2>
-              
-              {/* 顯示錯誤與警告 (如果有) */}
-              {(criticalFixes.length > 0 || warnings.length > 0) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                  <div className="space-y-3">
-                    <h3 className="text-red-600 font-black text-sm uppercase tracking-wider">🚨 優先修正 ({criticalFixes.length})</h3>
-                    {criticalFixes.length > 0 ? (
-                      criticalFixes.map((item, i) => (
-                        <div key={i} className="p-3 bg-red-50 rounded-xl text-xs font-bold text-red-700 border border-red-100">
-                          {item.category}: {item.name} 缺失或錯誤
-                        </div>
-                      ))
-                    ) : <p className="text-xs text-slate-400">目前無嚴重錯誤</p>}
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-orange-600 font-black text-sm uppercase tracking-wider">⚠️ 優化建議 ({warnings.length})</h3>
-                    {warnings.length > 0 ? (
-                      warnings.map((item, i) => (
-                        <div key={i} className="p-3 bg-orange-50 rounded-xl text-xs font-bold text-orange-700 border border-orange-100">
-                          {item.name}: {item.message}
-                        </div>
-                      ))
-                    ) : <p className="text-xs text-slate-400">目前無優化建議</p>}
-                  </div>
+              <div className="w-full flex-1 md:max-w-md">
+                <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
+                  <span>基礎優化起步</span>
+                  <span className="text-slate-700">體質完成度 {report.totalScore}%</span>
+                  <span>完美</span>
                 </div>
-              ) : (
-                <div className="mb-8 p-4 bg-green-50 border border-green-100 rounded-2xl text-center">
-                  <p className="text-green-700 font-bold text-sm">✨ 太棒了！您的網站基礎 SEO 表現非常出色。</p>
-                </div>
-              )}
-
-              {/* --- 外部進階檢測與學習連結 (一律顯示) --- */}
-              <div className="bg-slate-50 p-6 rounded-2xl print:hidden border border-slate-100">
-                <h3 className="text-sm font-black text-slate-500 mb-4 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  進階優化與學習資源
-                </h3>
-                <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                  除了基礎 SEO 指標，<b>網路載入速度</b>、<b>Schema 結構完整性</b>以及<b>專業的網頁製作技術</b>也是成功的關鍵。請參考以下資源：
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  <a 
-                    href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-blue-100 hover:scale-[1.02] active:scale-95"
-                  >
-                    🚀 PageSpeed 速度檢測
-                  </a>
-                  <a 
-                    href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-emerald-100 hover:scale-[1.02] active:scale-95"
-                  >
-                    🛠️ Schema 結構化驗證
-                  </a>
-                  <a 
-                    href="https://ai-zeta-dusky-55.vercel.app/"
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-[200px] inline-flex items-center justify-center gap-2 px-6 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-orange-100 hover:scale-[1.02] active:scale-95"
-                  >
-                    💡 學習加強與製作網頁
-                  </a>
+                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${report.totalScore >= 80 ? 'bg-green-500' : report.totalScore >= 60 ? 'bg-orange-500' : 'bg-red-500'}`} 
+                    style={{ width: `${report.totalScore}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
 
-            {/* --- 詳細分組項目 --- */}
-            {Object.keys(groupedResults).map((category) => (
-              <div key={category} className="space-y-4 break-inside-avoid">
-                <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest ml-2 flex items-center">
-                  <span className="w-8 h-1 bg-blue-500 mr-2 rounded-full"></span>
-                  {category}
-                </h2>
-                <div className="bg-white rounded-3xl shadow-lg border border-slate-100 overflow-hidden print:shadow-none print:border-slate-200">
-                  {groupedResults[category].map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-5 border-b last:border-0 border-slate-50 hover:bg-slate-50 transition-colors">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-slate-800">{item.name}</h3>
-                        <p className="text-xs text-slate-400 font-medium">{item.message}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${
-                          item.status === 'pass' ? 'bg-green-100 text-green-600' : 
-                          item.status === 'warning' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'
-                        }`}>
-                          {item.status}
-                        </span>
-                        <div className="text-right min-w-[50px]">
-                          <span className="font-bold text-slate-700">{item.score}</span>
-                          <span className="text-slate-300 text-xs font-bold">/5</span>
-                        </div>
-                      </div>
+            {/* 改善建議統整 */}
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200 print:shadow-none">
+              <h2 className="text-lg font-black mb-5 flex items-center gap-2 text-slate-800">📋 改善建議統整</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h3 className="text-red-600 font-black text-sm border-b border-red-100 pb-2">🚨 優先修正項目 ({criticalFixes.length})</h3>
+                  {criticalFixes.length > 0 ? criticalFixes.map((item, i) => (
+                    <div key={i} className="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-700 border border-red-100">
+                      {item.name}: {item.message}
                     </div>
-                  ))}
+                  )) : <div className="text-xs text-slate-400 font-medium">目前無嚴重錯誤</div>}
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-orange-600 font-black text-sm border-b border-orange-100 pb-2">⚠️ 優化建議 ({warnings.length})</h3>
+                  {warnings.length > 0 ? warnings.map((item, i) => (
+                    <div key={i} className="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold text-orange-700 border border-orange-100">
+                      {item.name}: {item.message}
+                    </div>
+                  )) : <div className="text-xs text-slate-400 font-medium">目前無優化建議</div>}
                 </div>
               </div>
-            ))}
+
+              {/* 三個重要連結按鈕 (緊湊且清晰) */}
+              <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3 print:hidden">
+                <a 
+                  href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(report.url)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold border border-blue-100 hover:bg-blue-600 hover:text-white transition-colors"
+                >
+                  🚀 官方 PageSpeed 測速
+                </a>
+                <a 
+                  href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold border border-emerald-100 hover:bg-emerald-500 hover:text-white transition-colors"
+                >
+                  🛠️ 官方 Schema 報告
+                </a>
+                <a 
+                  href="https://ai-zeta-dusky-55.vercel.app/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-orange-50 text-orange-700 rounded-xl text-sm font-bold border border-orange-100 hover:bg-orange-500 hover:text-white transition-colors"
+                >
+                  💡 智網 網頁製作與SEO
+                </a>
+              </div>
+            </div>
+
+            {/* 詳細檢測項目列表 */}
+            <div className="space-y-6">
+              {Object.keys(groupedResults).map((category) => (
+                <div key={category} className="space-y-3 break-inside-avoid">
+                  <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center">
+                    <span className="w-6 h-1 bg-blue-500 mr-2 rounded-full"></span>{category}
+                  </h2>
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:shadow-none">
+                    {groupedResults[category].map((item, idx) => (
+                      <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-4 border-b last:border-0 border-slate-100 hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 pr-4 mb-2 md:mb-0">
+                          <h3 className="font-bold text-slate-800 text-sm">{item.name}</h3>
+                          <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">{item.message}</p>
+                        </div>
+                        <div className="flex items-center justify-between md:justify-end min-w-[140px] gap-4">
+                          <span className={`px-2.5 py-1 rounded border text-[10px] font-black uppercase tracking-wider ${
+                            item.status === 'pass' ? 'bg-green-50 text-green-700 border-green-200' : 
+                            item.status === 'warning' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-700 border-red-200'
+                          }`}>
+                            {item.status}
+                          </span>
+                          <div className="w-[45px] text-right">
+                            {item.score !== null ? (
+                              <><span className="font-bold text-slate-700">{item.score}</span><span className="text-slate-300 text-xs font-bold">/5</span></>
+                            ) : (
+                              <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">不計分</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {/* CSS 針對列印優化 */}
       <style jsx global>{`
         @media print {
           body { background: white !important; }
           .print\\:hidden { display: none !important; }
-          .shadow-xl, .shadow-lg { box-shadow: none !important; }
-          .rounded-3xl { border-radius: 12px !important; }
+          .shadow-sm, .shadow-lg { box-shadow: none !important; }
+          .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 8px !important; }
           .break-inside-avoid { break-inside: avoid; }
         }
       `}</style>

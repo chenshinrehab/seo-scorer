@@ -1,41 +1,33 @@
 import * as cheerio from 'cheerio';
 
+export const maxDuration = 60;
+
 export async function POST(request) {
   try {
     const { url } = await request.json();
     let html = '';
     let usedProxy = false;
 
-    // 策略 1：嘗試直接存取 (速度最快)
+    // 嘗試存取網頁
     try {
       const directResponse = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
         },
-        // 設定較短的 timeout 防止卡住
-        signal: AbortSignal.timeout(5000) 
+        signal: AbortSignal.timeout(8000) 
       });
 
       if (directResponse.ok) {
         html = await directResponse.text();
-      } else if (directResponse.status === 403 || directResponse.status === 401) {
-        // 如果被封鎖，觸發 Error 進入 catch 區塊嘗試 Proxy
-        throw new Error('BLOCKED_BY_WAF');
       } else {
-        return Response.json({ error: `無法存取網址 (Status: ${directResponse.status})` }, { status: 400 });
+        throw new Error('DIRECT_FAILED');
       }
     } catch (err) {
-      // 策略 2：如果直接存取失敗 (403 或 Timeout)，改用 Proxy 繞過
       usedProxy = true;
       const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
       const proxyResponse = await fetch(proxyUrl);
-      
-      if (!proxyResponse.ok) {
-        return Response.json({ error: '直接存取被阻擋，且代理服務亦無法解析' }, { status: 400 });
-      }
-      
+      if (!proxyResponse.ok) return Response.json({ error: '無法解析該網址，請檢查網址有效性' }, { status: 400 });
       const proxyData = await proxyResponse.json();
       html = proxyData.contents;
     }
@@ -44,71 +36,110 @@ export async function POST(request) {
 
     const $ = cheerio.load(html);
     const results = [];
-    let totalScore = 0;
+    let earnedPoints = 0;
+    let maxPoints = 0;
 
-    const addScore = (category, name, score, status, message) => {
-      totalScore += score;
+    const addResult = (category, name, score, status, message) => {
+      if (score !== null) {
+        earnedPoints += score;
+        maxPoints += 5;
+      }
       results.push({ category, name, score, status, message });
     };
 
-    // --- SEO 分析邏輯 (保持不變) ---
-
-    // [GROUP: General]
+    // --- SEO 基礎 (計分) ---
     const title = $('title').text();
-    addScore('General', 'Title Tag', (title.length >= 30 && title.length <= 65) ? 5 : (title.length > 0 ? 2.5 : 0), (title.length >= 30 && title.length <= 65) ? 'pass' : 'warning', `長度: ${title.length} 字元`);
+    addResult('General', 'Title Tag', (title.length >= 30 && title.length <= 65) ? 5 : (title.length > 0 ? 2.5 : 0), (title.length >= 30 && title.length <= 65) ? 'pass' : (title.length > 0 ? 'warning' : 'fail'), `長度: ${title.length} 字元`);
     
     const desc = $('meta[name="description"]').attr('content') || "";
-    addScore('General', 'Meta Description', (desc.length >= 70 && desc.length <= 155) ? 5 : (desc.length > 0 ? 2.5 : 0), (desc.length >= 70 && desc.length <= 155) ? 'pass' : 'warning', `長度: ${desc.length} 字元`);
+    addResult('General', 'Meta Description', (desc.length >= 70 && desc.length <= 155) ? 5 : (desc.length > 0 ? 2.5 : 0), (desc.length >= 70 && desc.length <= 155) ? 'pass' : (desc.length > 0 ? 'warning' : 'fail'), `長度: ${desc.length} 字元`);
     
-    const keywords = $('meta[name="keywords"]').attr('content');
-    addScore('General', 'Meta Keywords', keywords ? 5 : 0, keywords ? 'pass' : 'fail', keywords ? '已設定' : '缺失');
-    
-    const canonical = $('link[rel="canonical"]').attr('href');
-    addScore('General', 'Canonical', canonical ? 5 : 0, canonical ? 'pass' : 'fail', canonical ? '已設定' : '缺失');
-    
-    const robots = $('meta[name="robots"]').attr('content');
-    addScore('General', 'Meta Robots', 5, 'pass', robots || 'index, follow');
+    addResult('General', 'Meta Keywords', $('meta[name="keywords"]').attr('content') ? 5 : 0, $('meta[name="keywords"]').attr('content') ? 'pass' : 'fail', $('meta[name="keywords"]').attr('content') ? '已設定' : '缺失');
+    addResult('General', 'Canonical', $('link[rel="canonical"]').attr('href') ? 5 : 0, $('link[rel="canonical"]').attr('href') ? 'pass' : 'fail', $('link[rel="canonical"]').attr('href') ? '已設定標準連結' : '未設定');
 
-    // [GROUP: Headings]
+    // --- 標題結構 ---
     const h1 = $('h1');
-    addScore('Headings', 'H1 Tag', h1.length === 1 ? 5 : 0, h1.length === 1 ? 'pass' : 'fail', `數量: ${h1.length}`);
-    
-    const h2 = $('h2').length;
-    addScore('Headings', 'H2 Tags', h2 > 0 ? 5 : 2.5, h2 > 0 ? 'pass' : 'warning', `數量: ${h2}`);
-    
-    const h3 = $('h3').length;
-    addScore('Headings', 'H3 Tags', h3 > 0 ? 5 : 2.5, h3 > 0 ? 'pass' : 'warning', `數量: ${h3}`);
+    addResult('Headings', 'H1 Tag', h1.length === 1 ? 5 : 0, h1.length === 1 ? 'pass' : 'fail', `數量: ${h1.length}`);
+    const h2Count = $('h2').length;
+    addResult('Headings', 'H2 Tags', h2Count > 0 ? 5 : 2.5, h2Count > 0 ? 'pass' : 'warning', `數量: ${h2Count}`);
+    const h3Count = $('h3').length;
+    addResult('Headings', 'H3 Tags', h3Count > 0 ? 5 : 2.5, h3Count > 0 ? 'pass' : 'warning', `數量: ${h3Count}`);
 
-    // [GROUP: Content]
+    // --- 內容與連結 ---
     const images = $('img');
     const missingAlt = images.filter((i, el) => !$(el).attr('alt')).length;
-    addScore('Content', 'Image Alt', missingAlt === 0 ? 5 : 2.5, missingAlt === 0 ? 'pass' : 'warning', `缺失 Alt: ${missingAlt}`);
+    addResult('Content', 'Image Alt', missingAlt === 0 ? 5 : 2.5, missingAlt === 0 ? 'pass' : 'warning', `缺失 Alt: ${missingAlt}`);
     
     const internal = $('a[href^="/"], a[href^="' + url + '"]').length;
-    addScore('Content', 'Internal Links', internal > 0 ? 5 : 2.5, 'pass', `數量: ${internal}`);
+    addResult('Content', 'Internal Links', internal > 0 ? 5 : 2.5, internal > 0 ? 'pass' : 'warning', `數量: ${internal}`);
     
     const external = $('a[href^="http"]').filter((i, el) => {
       const href = $(el).attr('href');
       try { return href && !href.includes(new URL(url).hostname); } catch { return false; }
     }).length;
-    addScore('Content', 'External Links', external > 0 ? 5 : 2.5, 'pass', `數量: ${external}`);
-    
+    addResult('Content', 'External Links', external > 0 ? 5 : 2.5, external > 0 ? 'pass' : 'warning', `數量: ${external}`);
+
     const lang = $('html').attr('lang');
-    addScore('Content', 'HTML Lang', lang ? 5 : 0, lang ? 'pass' : 'fail', `語系: ${lang || '未設定'}`);
+    addResult('Content', 'HTML Lang', lang ? 5 : 0, lang ? 'pass' : 'fail', `語系: ${lang || '未設定'}`);
 
-    // [GROUP: Social]
-    addScore('Social', 'OG Title', $('meta[property="og:title"]').attr('content') ? 5 : 0, 'pass', 'Facebook 分享標題');
-    addScore('Social', 'OG Image', $('meta[property="og:image"]').attr('content') ? 5 : 0, 'pass', 'Facebook 分享圖');
-    addScore('Social', 'Publisher', ($('meta[name="author"]').attr('content') || $('link[rel="publisher"]').attr('href')) ? 5 : 0, 'pass', '作者/發布者');
-    addScore('Social', 'Schema.org', $('script[type="application/ld+json"]').length > 0 ? 5 : 0, 'pass', 'JSON-LD 資料');
+    // --- 社交與技術 ---
+    addResult('Social', 'OG Title', $('meta[property="og:title"]').attr('content') ? 5 : 0, $('meta[property="og:title"]').attr('content') ? 'pass' : 'fail', 'Facebook 分享標題');
+    addResult('Social', 'OG Image', $('meta[property="og:image"]').attr('content') ? 5 : 0, $('meta[property="og:image"]').attr('content') ? 'pass' : 'fail', 'Facebook 分享圖');
+    addResult('Social', 'Publisher', ($('meta[name="author"]').attr('content') || $('link[rel="publisher"]').attr('href')) ? 5 : 0, ($('meta[name="author"]').attr('content') || $('link[rel="publisher"]').attr('href')) ? 'pass' : 'fail', '作者/發布者');
 
-    // [GROUP: Technical]
-    addScore('Technical', 'SSL/HTTPS', url.startsWith('https') ? 5 : 0, url.startsWith('https') ? 'pass' : 'fail', '加密連線');
-    addScore('Technical', 'Favicon', $('link[rel*="icon"]').length > 0 ? 5 : 0, 'pass', '網站圖示');
-    addScore('Technical', 'Charset', ($('meta[charset]').length > 0 || $('meta[http-equiv="Content-Type"]').length > 0) ? 5 : 0, 'pass', '編碼設定');
-    addScore('Technical', 'Viewport', $('meta[name="viewport"]').length > 0 ? 5 : 0, 'pass', '行動裝置優化');
+    addResult('Technical', 'SSL/HTTPS', url.startsWith('https') ? 5 : 0, url.startsWith('https') ? 'pass' : 'fail', '加密連線');
+    addResult('Technical', 'Favicon', $('link[rel*="icon"]').length > 0 ? 5 : 0, $('link[rel*="icon"]').length > 0 ? 'pass' : 'fail', '網站圖示');
+    addResult('Technical', 'Charset', ($('meta[charset]').length > 0 || $('meta[http-equiv="Content-Type"]').length > 0) ? 5 : 0, ($('meta[charset]').length > 0 || $('meta[http-equiv="Content-Type"]').length > 0) ? 'pass' : 'fail', '編碼設定');
+    addResult('Technical', 'Viewport', $('meta[name="viewport"]').length > 0 ? 5 : 0, $('meta[name="viewport"]').length > 0 ? 'pass' : 'fail', '行動裝置優化設定');
 
-    return Response.json({ url, totalScore, results, usedProxy });
+    // --- 結構化資料深度偵測 (確保印出所有名稱) ---
+    const schemas = $('script[type="application/ld+json"]');
+    let schemaObjCount = 0;
+    let detectedTypes = [];
+    
+    if (schemas.length > 0) {
+      schemas.each((i, el) => {
+        try {
+          const content = JSON.parse($(el).html());
+          
+          // 深度遞迴尋找 @type，確保連 @graph 或深層陣列內的名字都不漏掉
+          const findTypes = (node) => {
+            if (!node || typeof node !== 'object') return;
+            if (node['@type']) {
+              schemaObjCount++;
+              if (Array.isArray(node['@type'])) {
+                detectedTypes.push(...node['@type']);
+              } else {
+                detectedTypes.push(node['@type']);
+              }
+            }
+            // 繼續往下找
+            Object.values(node).forEach(val => {
+              if (typeof val === 'object') findTypes(val);
+            });
+          };
+
+          findTypes(content);
+        } catch (e) {
+          // 忽略單一區塊解析失敗
+        }
+      });
+
+      // 去除重複的名稱
+      const uniqueTypes = [...new Set(detectedTypes)].filter(Boolean);
+      
+      if (uniqueTypes.length > 0) {
+        // 精確列出數量與陣列名稱
+        addResult('Schema Validation', '結構化資料', null, 'pass', `共偵測到 ${schemaObjCount} 個物件，包含類型：${uniqueTypes.join(', ')}`);
+      } else {
+        addResult('Schema Validation', '結構化資料', null, 'warning', '偵測到 JSON-LD 標籤，但缺少有效的 @type 屬性');
+      }
+    } else {
+      addResult('Schema Validation', '結構化資料', null, 'fail', '未偵測到任何結構化資料標記');
+    }
+
+    const totalScore = Math.round((earnedPoints / maxPoints) * 100);
+    return Response.json({ url, totalScore, results });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
