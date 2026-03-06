@@ -7,7 +7,7 @@ export default function Home() {
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
   
-  // 手機版專用：純提示 Modal 狀態 (不含信件功能)
+  // 手機版專用：純提示 Modal 狀態
   const [showPromptModal, setShowPromptModal] = useState(false);
 
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 扁平化同一行按鈕 (手機板與電腦版通用) */}
+              {/* 扁平化同一行按鈕 (手機版與電腦版通用) */}
               <div className="flex flex-row gap-2 w-full md:w-auto print:hidden shrink-0">
                 <button 
                   onClick={() => {sessionStorage.removeItem('last_seo_report'); setReport(null);}} 
@@ -202,7 +202,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 建議區塊與重要三大按鈕 */}
+            {/* 建議區塊 */}
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-lg border border-slate-50 print:shadow-none">
               
               <h3 className="text-lg md:text-xl font-black mb-6 flex items-center gap-2 text-slate-800">📋 改善建議統整</h3>
@@ -260,7 +260,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 詳細檢測項目列表 (保留了完整的 5/5 與不計分徽章) */}
+            {/* 詳細檢測項目列表 (保留完整的 5/5 與不計分徽章) */}
             <div className="space-y-8 md:space-y-10 text-left">
               {Object.keys(groupedResults).map((category) => (
                 <div key={category} className="space-y-4 break-inside-avoid section-card">
@@ -306,7 +306,7 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
-        /* 完整的 CSS 動畫與列印樣式 */
+        /* 動畫與列印樣式 */
         @keyframes bounceIn {
           0% { opacity: 0; transform: translateY(-50px) scale(0.9); }
           70% { opacity: 1; transform: translateY(10px) scale(1.02); }
