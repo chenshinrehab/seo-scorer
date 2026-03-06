@@ -6,48 +6,40 @@ export async function POST(request) {
   try {
     const { url } = await request.json();
     let html = '';
-    let usedProxy = false;
     
-    // --- 策略 1：正常存取 (限時 5 秒) ---
+    // --- 速度優先策略 1：直接連線 (嚴格限時 5 秒) ---
     try {
       const directResponse = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+          'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
         },
         signal: AbortSignal.timeout(5000) 
       });
 
       if (directResponse.ok) {
         html = await directResponse.text();
-      } else if (directResponse.status === 403 || directResponse.status === 401) {
-        // 主動識別阻擋，立刻觸發 Error 進入 Catch 切換 Proxy
-        throw new Error('BLOCKED_BY_WAF');
       } else {
-        // 其他真實的伺服器錯誤則直接回報
-        return Response.json({ error: `無法存取網址 (Status: ${directResponse.status})` }, { status: 400 });
+        throw new Error('DIRECT_FAILED');
       }
     } catch (err) {
-      // --- 策略 2：直接存取失敗 (Timeout 或 403)，立刻轉向 Proxy ---
-      usedProxy = true;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&disableCache=true`;
-      
+      // --- 速度優先策略 2：快速代理 (嚴格限時 5 秒，失敗立刻放棄，不拖延) ---
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&disableCache=true&time=${Date.now()}`;
       try {
-        // 給 Proxy 充裕的 20 秒時間突破 Cloudflare 類型的防護
-        const proxyResponse = await fetch(proxyUrl, { signal: AbortSignal.timeout(20000) });
-        
-        if (!proxyResponse.ok) {
-          return Response.json({ error: '直接存取被阻擋，且代理服務亦無法解析' }, { status: 400 });
-        }
-        
+        const proxyResponse = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+        if (!proxyResponse.ok) return Response.json({ error: '無法解析該網址，目標網站可能阻擋外部讀取' }, { status: 400 });
         const proxyData = await proxyResponse.json();
+        
         if (!proxyData.contents) {
-          return Response.json({ error: '代理服務回傳空內容，請確認目標網址是否正確' }, { status: 400 });
+          throw new Error('EMPTY_CONTENTS');
         }
         html = proxyData.contents;
       } catch (proxyErr) {
-        return Response.json({ error: '連線逾時，請檢查網址有效性 (目標網站可能啟用強烈防護)' }, { status: 400 });
+        // 立刻回報錯誤，不再苦等
+        return Response.json({ error: '連線逾時或遭阻擋 (為確保分析速度，已為您主動取消等待)' }, { status: 400 });
       }
     }
 
@@ -147,8 +139,7 @@ export async function POST(request) {
     }
 
     const totalScore = Math.round((earnedPoints / maxPoints) * 100);
-    // 回傳加入 usedProxy 幫助除錯
-    return Response.json({ url, totalScore, results, usedProxy });
+    return Response.json({ url, totalScore, results });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
