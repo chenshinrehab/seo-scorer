@@ -7,10 +7,8 @@ export default function Home() {
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
   
-  // 新增：手機版寄信 Modal 的狀態
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [email, setEmail] = useState('');
-  const [sendingEmail, setSendingEmail] = useState(false);
+  // 手機版專用：純提示 Modal 狀態 (不含信件功能)
+  const [showPromptModal, setShowPromptModal] = useState(false);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('last_seo_report');
@@ -39,27 +37,14 @@ export default function Home() {
     }
   };
 
-  // 1. 處理匯出按鈕：電腦版直接印，手機版跳出信箱輸入視窗
+  // 匯出按鈕邏輯：手機版跳提示，電腦版直接列印
   const handleExportClick = () => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (isMobile) {
-      setShowEmailModal(true); // 手機版：開啟彈窗
+      setShowPromptModal(true); 
     } else {
-      window.print();          // 電腦版：直接列印
+      window.print();          
     }
-  };
-
-  // 模擬寄信流程 (您未來可在這裡串接真實 API)
-  const handleSendEmail = (e) => {
-    e.preventDefault();
-    setSendingEmail(true);
-    // 模擬 1.5 秒寄信過程
-    setTimeout(() => {
-      setSendingEmail(false);
-      setShowEmailModal(false);
-      alert(`已模擬將報告寄送至 ${email}！\n\n(註：此為功能展示，真實發信請於後端串接 SendGrid 或 Resend 等發信服務)`);
-      setEmail('');
-    }, 1500);
   };
 
   const criticalFixes = report?.results.filter(item => item.status === 'fail') || [];
@@ -78,40 +63,29 @@ export default function Home() {
         <div className="absolute bottom-[10%] right-[0%] w-[30%] h-[30%] bg-indigo-100 rounded-full blur-[100px] opacity-40"></div>
       </div>
 
-      {/* 手機版：寄送 Email 的彈出視窗 */}
-      {showEmailModal && (
+      {/* 手機版：純提示使用電腦下載的視窗 */}
+      {showPromptModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4 print:hidden">
-          <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl w-full max-w-sm animate-bounce-in">
-            <h3 className="text-xl font-black text-slate-800 mb-2">📥 匯出或寄送報告</h3>
-            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-              手機版瀏覽器限制較多，建議您使用 <b className="text-slate-700">電腦版</b> 開啟本頁以匯出完美排版的 PDF。<br/><br/>
-              或者，您可以輸入 Email 將報告傳送到信箱：
+          <div className="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-w-sm animate-bounce-in text-center border border-slate-100">
+            <div className="text-5xl mb-4">💻</div>
+            <h3 className="text-xl font-black text-slate-800 mb-4">請使用電腦版本下載</h3>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+              手機版瀏覽器目前無法輸出完美的報告排版。<br/><br/>
+              建議您改用 <b className="text-blue-600">電腦端瀏覽器</b> 開啟此網頁，即可取得完整的 PDF 報告。
             </p>
-            <form onSubmit={handleSendEmail} className="space-y-4">
-              <input
-                type="email"
-                required
-                placeholder="輸入您的 Email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none text-sm transition-all"
-              />
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setShowEmailModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-200 transition-colors">
-                  返回
-                </button>
-                <button type="submit" disabled={sendingEmail} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow-md disabled:opacity-50 hover:bg-blue-700 transition-colors">
-                  {sendingEmail ? '寄送中...' : '確認寄送'}
-                </button>
-              </div>
-            </form>
+            <button 
+              onClick={() => setShowPromptModal(false)} 
+              className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl text-base shadow-lg hover:bg-blue-700 transition-all active:scale-95"
+            >
+              我知道了
+            </button>
           </div>
         </div>
       )}
 
       <div className="max-w-4xl mx-auto space-y-8 relative z-10">
         
-        {/* 搜尋與標題區塊 */}
+        {/* 搜尋與雙行標題區塊 */}
         <div className="bg-white/80 backdrop-blur-xl p-6 md:p-10 rounded-[2.5rem] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] border border-white text-center print:hidden animate-bounce-in">
           
           <div className="mb-8 flex justify-center">
@@ -122,7 +96,7 @@ export default function Home() {
               className="flex items-center gap-4 group transition-all duration-500 hover:scale-105"
             >
               <div className="p-3 bg-blue-50 rounded-2xl group-hover:bg-blue-600 group-hover:rotate-12 transition-all duration-500">
-                <img src="/favicon.svg" alt="智網 Logo" className="w-10 h-10 md:w-12 md:h-12 drop-shadow-sm" />
+                <img src="/favicon.svg" alt="智網 Logo" className="w-10 h-10 md:w-12 md:h-12 drop-shadow-sm group-hover:invert transition-all" />
               </div>
               <div className="flex flex-col text-left">
                 <h1 className="text-3xl md:text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
@@ -152,7 +126,7 @@ export default function Home() {
             </button>
           </form>
           
-          {/* 首頁搜尋下方的智網教學按鈕加回來 */}
+          {/* 首頁下方的教學推廣按鈕 */}
           {!report && !loading && (
             <div className="mt-8 flex justify-center animate-in fade-in duration-500">
               <a 
@@ -174,31 +148,30 @@ export default function Home() {
             
             {/* 標題欄與操作按鈕 */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end px-2 md:px-4 gap-4 md:gap-6 border-b-2 border-slate-100 pb-4">
-              <div className="space-y-1">
-                <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">分析完成！報告已生成</h2>
-                <div className="flex items-center gap-2 text-blue-600 font-mono text-[10px] md:text-sm bg-blue-50/50 px-3 py-1 rounded-full border border-blue-100/50 break-all w-fit">
+              <div className="space-y-1 overflow-hidden w-full md:w-auto">
+                <h2 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight truncate">分析完成！</h2>
+                <div className="flex items-center gap-2 text-blue-600 font-mono text-[10px] md:text-sm bg-blue-50/50 px-3 py-1 rounded-full border border-blue-100/50 break-all w-fit max-w-full">
                   <span className="relative flex h-2 w-2 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                   </span>
-                  {report.url}
+                  <span className="truncate">{report.url}</span>
                 </div>
               </div>
 
-              {/* 手機版扁平化、同一行設計 */}
-              <div className="flex flex-row gap-2 w-full md:w-auto print:hidden">
+              {/* 扁平化同一行按鈕 (手機板與電腦版通用) */}
+              <div className="flex flex-row gap-2 w-full md:w-auto print:hidden shrink-0">
                 <button 
                   onClick={() => {sessionStorage.removeItem('last_seo_report'); setReport(null);}} 
-                  className="flex-1 md:flex-none bg-slate-200 text-slate-700 px-4 py-2 md:px-6 md:py-3 rounded-lg md:rounded-2xl font-bold text-xs md:text-base border border-slate-200 hover:bg-slate-300 transition-all shadow-sm whitespace-nowrap"
+                  className="flex-1 md:flex-none bg-slate-200 text-slate-700 px-3 py-2 md:px-6 md:py-3 rounded-lg md:rounded-2xl font-bold text-xs md:text-base border border-slate-200 hover:bg-slate-300 transition-all shadow-sm whitespace-nowrap"
                 >
                   重新測試
                 </button>
                 <button 
                   onClick={handleExportClick} 
-                  className="flex-1 md:flex-none bg-red-600 text-white px-4 py-2 md:px-8 md:py-3 rounded-lg md:rounded-2xl font-black text-xs md:text-base hover:bg-red-700 hover:shadow-xl transition-all shadow-md flex items-center justify-center gap-1 whitespace-nowrap"
+                  className="flex-1 md:flex-none bg-red-600 text-white px-3 py-2 md:px-8 md:py-3 rounded-lg md:rounded-2xl font-black text-xs md:text-base hover:bg-red-700 hover:shadow-xl transition-all shadow-md flex items-center justify-center gap-1 whitespace-nowrap"
                 >
-                  <span className="md:hidden">🖨️ 匯出/寄送</span>
-                  <span className="hidden md:inline">🖨️ 匯出 PDF 報告</span>
+                  🖨️ 匯出報告
                 </button>
               </div>
             </div>
@@ -212,7 +185,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-4 md:space-y-6 w-full">
+              <div className="flex-1 space-y-4 md:space-y-6 w-full text-center md:text-left">
                 <div className="space-y-2">
                   <div className="flex justify-between items-end">
                     <h3 className="text-lg md:text-xl font-black text-slate-800">優化完成度</h3>
@@ -234,7 +207,7 @@ export default function Home() {
               
               <h3 className="text-lg md:text-xl font-black mb-6 flex items-center gap-2 text-slate-800">📋 改善建議統整</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-left">
                 <div className="space-y-4">
                   <h4 className="text-red-600 font-black text-sm flex items-center gap-2 border-b border-red-100 pb-2">🚨 優先修正 ({criticalFixes.length})</h4>
                   <div className="space-y-3">
@@ -287,8 +260,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 詳情列表 */}
-            <div className="space-y-8 md:space-y-10">
+            {/* 詳細檢測項目列表 (保留了完整的 5/5 與不計分徽章) */}
+            <div className="space-y-8 md:space-y-10 text-left">
               {Object.keys(groupedResults).map((category) => (
                 <div key={category} className="space-y-4 break-inside-avoid section-card">
                   <div className="flex items-center gap-4 px-2">
@@ -297,16 +270,30 @@ export default function Home() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {groupedResults[category].map((item, idx) => (
-                      <div key={idx} className="bg-white p-5 md:p-6 rounded-2xl md:rounded-[1.5rem] shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-100 transition-all flex justify-between items-start gap-4 print:shadow-none print:border-slate-200">
-                        <div className="space-y-1">
+                      <div key={idx} className="bg-white p-5 md:p-6 rounded-2xl md:rounded-[1.5rem] shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-100 transition-all flex flex-col md:flex-row justify-between items-start gap-4 print:shadow-none print:border-slate-200">
+                        <div className="space-y-1 flex-1 pr-0 md:pr-4">
                           <h4 className="font-black text-slate-800 text-sm md:text-base">{item.name}</h4>
                           <p className="text-[10px] md:text-xs text-slate-500 font-medium leading-relaxed">{item.message}</p>
                         </div>
-                        <div className={`shrink-0 px-2.5 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest print-force-color ${
-                          item.status === 'pass' ? 'bg-green-100 text-green-700' : 
-                          item.status === 'warning' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {item.status}
+                        
+                        <div className="flex items-center justify-between w-full md:w-auto md:justify-end min-w-[140px] gap-4">
+                          <span className={`px-2.5 py-1 rounded border text-[9px] md:text-[10px] font-black uppercase tracking-widest print-force-color ${
+                            item.status === 'pass' ? 'bg-green-50 text-green-700 border-green-200' : 
+                            item.status === 'warning' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-700 border-red-200'
+                          }`}>
+                            {item.status}
+                          </span>
+                          
+                          <div className="w-[45px] text-right">
+                            {item.score !== null ? (
+                              <>
+                                <span className="font-bold text-slate-700">{item.score}</span>
+                                <span className="text-slate-300 text-xs font-bold"> / 5</span>
+                              </>
+                            ) : (
+                              <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">不計分</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -319,6 +306,7 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
+        /* 完整的 CSS 動畫與列印樣式 */
         @keyframes bounceIn {
           0% { opacity: 0; transform: translateY(-50px) scale(0.9); }
           70% { opacity: 1; transform: translateY(10px) scale(1.02); }
@@ -356,6 +344,7 @@ export default function Home() {
           .report-container > * { opacity: 1 !important; transform: none !important; animation: none !important; }
           .shadow-xl, .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
           .rounded-[2.5rem], .rounded-[2rem], .rounded-[1.5rem], .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 12px !important; }
+          .break-inside-avoid { break-inside: avoid; }
         }
       `}</style>
     </main>
