@@ -20,7 +20,7 @@ export const metadata = {
   openGraph: {
     title: "智網網站 SEO 評估 - 找出您網站的搜尋排名關鍵",
     description: "智網免費 SEO 評估工具，提供速度、結構、標籤等完整檢測，讓您的網站脫穎而出。",
-    url: "https://ai-zeta-dusky-55.vercel.app/", // 建議改為您的實際網址
+    url: "https://https://seo-scorer-henna.vercel.app/", // 建議改為您的實際網址
     siteName: "智網網站 SEO 專家",
     images: [
       {
