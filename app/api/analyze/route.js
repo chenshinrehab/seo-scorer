@@ -17,7 +17,7 @@ export async function POST(request) {
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache',
         },
-        signal: AbortSignal.timeout(5000) 
+        signal: AbortSignal.timeout(7000) 
       });
 
       if (directResponse.ok) {
@@ -39,7 +39,7 @@ export async function POST(request) {
         html = proxyData.contents;
       } catch (proxyErr) {
         // 立刻回報錯誤，不再苦等
-        return Response.json({ error: '連線逾時或遭阻擋 (為確保分析速度，已為您主動取消等待)' }, { status: 400 });
+        return Response.json({ error: '無法解析該網址，目標網站可能阻擋外部讀取，請改用本地端運作或安裝Detailed SEO Extension' }, { status: 400 });
       }
     }
 
