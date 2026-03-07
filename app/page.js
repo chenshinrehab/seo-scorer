@@ -239,7 +239,7 @@ export default function Home() {
                   rel="noopener noreferrer" 
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-3 md:px-6 md:py-4 bg-blue-50 text-blue-700 rounded-xl md:rounded-[1.5rem] text-sm font-black border border-blue-100 hover:bg-blue-600 hover:text-white transition-colors shadow-sm hover:shadow-md hover:-translate-y-1"
                 >
-                  🚀 官方 PageSpeed 測速
+                  🚀 PageSpeed Insights 測速
                 </a>
                 <a 
                   href={`https://validator.schema.org/#url=${encodeURIComponent(report.url)}`} 
@@ -247,7 +247,7 @@ export default function Home() {
                   rel="noopener noreferrer" 
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-3 md:px-6 md:py-4 bg-emerald-50 text-emerald-700 rounded-xl md:rounded-[1.5rem] text-sm font-black border border-emerald-100 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm hover:shadow-md hover:-translate-y-1"
                 >
-                  🛠️ 官方 Schema 報告
+                  🛠️ Schema.org 評估
                 </a>
                 <a 
                   href="https://ai-zeta-dusky-55.vercel.app/" 
