@@ -122,7 +122,7 @@ export default function Home() {
               disabled={loading}
               className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-2xl hover:shadow-[0_10px_25px_-5px_rgba(37,99,235,0.4)] hover:-translate-y-1 active:scale-95 disabled:opacity-50 transition-all text-lg whitespace-nowrap"
             >
-              {loading ? '探測中...' : '開始探測'}
+              {loading ? '分析中...' : '開始分析'}
             </button>
           </form>
           
@@ -140,7 +140,7 @@ export default function Home() {
             </div>
           )}
 
-          {error && <div className="mt-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-100 rounded-2xl text-red-600 font-bold animate-shake">⚠️ {error}</div>}
+          {error && <div className="mt-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-100 rounded-2xl text-red-600 font-bold ">⚠️ {error}</div>}
         </div>
 
         {report && (
@@ -260,7 +260,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 詳細檢測項目列表 (保留完整的 5/5 與不計分徽章) */}
+            {/* 詳細檢測項目列表 */}
             <div className="space-y-8 md:space-y-10 text-left">
               {Object.keys(groupedResults).map((category) => (
                 <div key={category} className="space-y-4 break-inside-avoid section-card">
@@ -288,7 +288,8 @@ export default function Home() {
                             {item.score !== null ? (
                               <>
                                 <span className="font-bold text-slate-700">{item.score}</span>
-                                <span className="text-slate-300 text-xs font-bold"> / 5</span>
+                                {/* 動態顯示該項目的滿分 */}
+                                <span className="text-slate-300 text-xs font-bold"> / {item.maxScore}</span>
                               </>
                             ) : (
                               <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-widest">不計分</span>
@@ -323,7 +324,6 @@ export default function Home() {
         }
         
         .animate-bounce-in { animation: bounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-        .animate-shake { animation: shake 0.3s ease-in-out infinite; }
         
         .report-container > * { opacity: 0; animation: fadeInUp 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
         .report-container > *:nth-child(1) { animation-delay: 0.1s; }
