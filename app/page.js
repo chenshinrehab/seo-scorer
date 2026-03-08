@@ -272,7 +272,15 @@ export default function Home() {
                     {groupedResults[category].map((item, idx) => (
                       <div key={idx} className="bg-white p-5 md:p-6 rounded-2xl md:rounded-[1.5rem] shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-100 transition-all flex flex-col md:flex-row justify-between items-start gap-4 print:shadow-none print:border-slate-200">
                         <div className="space-y-1 flex-1 pr-0 md:pr-4">
-                          <h4 className="font-black text-slate-800 text-sm md:text-base">{item.name}</h4>
+                          {/* 渲染標題及專屬的 explanation 說明標籤 (強制上下行) */}
+                          <div className="flex flex-col gap-1 md:gap-2 mb-2">
+                            <h4 className="font-black text-slate-800 text-sm md:text-base">{item.name}</h4>
+                            {item.explanation && (
+                              <span className="text-[10px] md:text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100/50 px-2 py-0.5 rounded-md w-fit">
+                                {item.explanation}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] md:text-xs text-slate-500 font-medium leading-relaxed">{item.message}</p>
                         </div>
                         
@@ -288,7 +296,6 @@ export default function Home() {
                             {item.score !== null ? (
                               <>
                                 <span className="font-bold text-slate-700">{item.score}</span>
-                                {/* 動態顯示該項目的滿分 */}
                                 <span className="text-slate-300 text-xs font-bold"> / {item.maxScore}</span>
                               </>
                             ) : (
@@ -343,7 +350,7 @@ export default function Home() {
           .print\\:hidden { display: none !important; }
           .report-container > * { opacity: 1 !important; transform: none !important; animation: none !important; }
           .shadow-xl, .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
-          .rounded-[2.5rem], .rounded-[2rem], .rounded-[1.5rem], .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 12px !important; }
+          .rounded-\\[2\\.5rem\\], .rounded-\\[2rem\\], .rounded-\\[1\\.5rem\\], .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 12px !important; }
           .break-inside-avoid { break-inside: avoid; }
         }
       `}</style>
